@@ -1,0 +1,21 @@
+trial=1 input=0 gpi=0xD7180002
+trial=1 input=1 gpi=0xD7180003
+trial=2 input=0 gpi=0xD7180002
+trial=2 input=1 gpi=0xD7180003
+trial=3 input=0 gpi=0xD7180002
+trial=3 input=1 gpi=0xD7180003
+trial=4 input=0 gpi=0xD7180002
+trial=4 input=1 gpi=0xD7180003
+trial=5 input=0 gpi=0xD7180002
+trial=5 input=1 gpi=0xD7180003
+trial=6 input=0 gpi=0xD7180002
+trial=6 input=1 gpi=0xD7180003
+trial=7 input=0 gpi=0xD7180002
+trial=7 input=1 gpi=0xD7180003
+trial=8 input=0 gpi=0xD7180002
+trial=8 input=1 gpi=0xD7180003
+trial=9 input=0 gpi=0xD7180002
+trial=9 input=1 gpi=0xD7180003
+trial=10 input=0 gpi=0xD7180002
+trial=10 input=1 gpi=0xD7180003
+PASS: locked capture follows all 20 input changes
