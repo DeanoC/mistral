@@ -1,6 +1,9 @@
 #ifndef MISTRAL_CYCLONEV_H
 #define MISTRAL_CYCLONEV_H
 
+// LAB/MLAB CLKx_INV and CLKx_SEL address the corrected physical bits.
+#define MISTRAL_CORRECT_LAB_CLOCK_MUXES 1
+
 #include <stdint.h>
 #include <string.h>
 #include <vector>

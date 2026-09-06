@@ -80,18 +80,18 @@ g clka_sel               m:1  0.43
 g clkb_sel               m:1  1.42
   0 cin1 !
   1 din1
-g clk0_sel               m:1  10.44
+g clk0_sel               m:1  6.45
   0 clka !
   1 clkb
-g clk0_inv               b-   6.45
-g clk1_sel               m:1  10.43
+g clk0_inv               b-   10.44
+g clk1_sel               m:1  6.43
   0 clka !
   1 clkb
-g clk1_inv               b-   6.43
-g clk2_sel               m:1  10.41
+g clk1_inv               b-   10.43
+g clk2_sel               m:1  6.41
   0 clka !
   1 clkb
-g clk2_inv               b-   6.41
+g clk2_inv               b-   10.41
 g en0_ninv               b+   1.44
 g en1_ninv               b+   0.44
 g en2_ninv               b+   1.40
