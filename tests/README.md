@@ -35,7 +35,23 @@ The test loads the positive reference, sets all three `CLKx_INV` fields,
 normalizes JTAG_ID in both models and requires byte-for-byte equality after
 serialization. This checks against Quartus, not a self-consistent decompiler.
 
-Run each Quartus build in a separate empty directory, replacing `MLAB` with
+The compressed reference RBFs and SHA-256 manifest are included in
+[fixtures/lab-clock](fixtures/lab-clock/README.md). No Quartus installation
+or external artifact download is needed to run the comparison:
+
+```sh
+cmake -S . -B build
+cmake --build build -j4
+c++ -std=c++14 -Ilibmistral -Ibuild/tools -Ibuild/libmistral \
+  tests/lab-clock-oracle.cc build/libmistral/libmistral.a -llzma -o build/lab-clock-oracle
+python3 tests/run-lab-clock-oracle.py build/lab-clock-oracle
+```
+
+The runner verifies every fixture checksum, extracts files to a temporary
+directory, runs both block-type comparisons, and removes the extracted files.
+
+To regenerate the references with Quartus 17.0.2, run each build in a separate
+empty directory, replacing `MLAB` with
 `LAB` to exercise the other block type:
 
 ```sh
