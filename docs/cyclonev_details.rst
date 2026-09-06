@@ -128,6 +128,10 @@ DSP
 
 The DSP blocks provide a multiply-adder with differents modes. Its large
 number of inputs and output makes it span two tiles vertically.
+The tile map marks both the base (``T_DSP``) and upper routing tile
+(``T_DSP2``), including when a BEL span ends at the base row. Only the
+base is listed in ``dsp_get_pos()``. This preserves reverse port lookup
+for input and result routes at the upper edge of a span.
 
 The modes are are:
 
@@ -684,4 +688,3 @@ Options
 -------
 
 .. include:: gendoc/opt-dmux.rst
-
