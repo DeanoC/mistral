@@ -75,7 +75,7 @@ Boolean muxes look like this:
 
 .. code-block::
 
-    g clk0_inv               b-   6.45
+    g clk0_inv               b-   10.44
 
 The 'b' indicates boolean, and '-' indicates the default is false,
 otherwise it is '+' for true.  The boolean can be multi-bits, such as
