@@ -128,6 +128,11 @@ DSP
 
 The DSP blocks provide a multiply-adder with differents modes. Its large
 number of inputs and output makes it span two tiles vertically.
+The tile map records both the base (``T_DSP``) and the upper routing
+tile (``T_DSP2``), including when a BEL span ends on the base row.
+Only the base is listed in ``dsp_get_pos()``.  That keeps reverse
+lookup working for input and result routes on the upper edge of a
+span.
 
 The modes are are:
 
