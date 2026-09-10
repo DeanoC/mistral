@@ -1,0 +1,18 @@
+{
+  "lab-pos.rbf": {
+    "sha256": "9a4f9b2edc169095d544b1c8b10a952618c4a52f3eced1c2023caf3ab7618424",
+    "bytes": 1952888
+  },
+  "lab-neg.rbf": {
+    "sha256": "07efab2ca837db2bd6ed3f31fa4518209ebf8bb7c61ee650033868dea7e1409f",
+    "bytes": 1952888
+  },
+  "mlab-pos.rbf": {
+    "sha256": "9e82e51d930bd3197ded684dff432e68f8d45eb40a8567bb328f293abe303426",
+    "bytes": 1952916
+  },
+  "mlab-neg.rbf": {
+    "sha256": "c625082b92782984f534201eacb5ddf26a2709a89689fba28fd1352e3121e237",
+    "bytes": 1952916
+  }
+}
