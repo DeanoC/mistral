@@ -1,6 +1,9 @@
 #ifndef MISTRAL_CYCLONEV_H
 #define MISTRAL_CYCLONEV_H
 
+// LAB/MLAB CLKx_INV and CLKx_SEL refer to the Quartus-verified bit positions.
+#define MISTRAL_CORRECT_LAB_CLOCK_MUXES 1
+
 #include <stdint.h>
 #include <string.h>
 #include <vector>

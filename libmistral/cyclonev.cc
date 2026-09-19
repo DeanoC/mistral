@@ -350,6 +350,10 @@ void mistral::CycloneV::add_cram_blocks()
 	    tile_types[pos.v] = tp;
 	    tile_bels[pos.v].push_back(tp == T_LAB ? LAB : tp == T_MLAB ? MLAB : tp == T_M10K ? M10K : DSP);
 	    posvec->push_back(pos);
+	    // A DSP BEL can end on the last row of a span; the upper
+	    // routing tile still exists one row above the base.
+	    if(is_dsp)
+	      tile_types[xycoords(x, y+1).v] = T_DSP2;
 	  } else
 	    tile_types[pos.v] = T_DSP2;
 	}	

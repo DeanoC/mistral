@@ -6,7 +6,10 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_options(-Wall)
 
+enable_testing()
+
 add_subdirectory(tools)
 add_subdirectory(generator)
 add_subdirectory(libmistral)
 add_subdirectory(mistral-cv)
+add_subdirectory(tests)
