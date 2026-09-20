@@ -59,3 +59,23 @@ The fixtures use MLAB X8/Y32 or LAB X7/Y32 on `5CSEBA6U23I7`. The original
 block types. Separate 25%/75% mixed-edge references and the DE10-Nano
 functional capture diagnostic confirm the affected path. This is not a
 measurement of PLL duty accuracy or setup/hold margins on hardware.
+
+# Routing mux CRAM coordinates
+
+`routing-mux-cram.cc` checks the physical configuration footprint of seven
+routing muxes isolated from an outside-slot ZX81 composition difference,
+plus an inside-slot mux. Logical wire tile coordinates do not necessarily
+identify the tile containing its programmable bits. The test checks exact
+coordinates, half-open boundaries, output replacement, unknown nodes and a
+fixed connection with no programmable mux.
+
+```sh
+c++ -std=c++14 -Ilibmistral -Ibuild/tools -Ibuild/libmistral \
+  tests/routing-mux-cram.cc build/libmistral/libmistral.a -llzma -o build/routing-mux-cram
+build/routing-mux-cram
+```
+
+Use the nextpnr build include/library paths described above when testing its
+embedded library. This is an offline table/accessor regression; it does not
+establish physical hardware acceptance or replace the final bitstream boundary
+comparison.

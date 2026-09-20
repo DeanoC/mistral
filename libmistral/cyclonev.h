@@ -3,6 +3,7 @@
 
 // LAB/MLAB CLKx_INV and CLKx_SEL address the corrected physical bits.
 #define MISTRAL_CORRECT_LAB_CLOCK_MUXES 1
+#define MISTRAL_ROUTING_MUX_CRAM_BITS 1
 
 #include <stdint.h>
 #include <string.h>
@@ -370,6 +371,8 @@ namespace mistral {
     // Sizes
     int get_tile_sx() const { return di.tile_sx; }
     int get_tile_sy() const { return di.tile_sy; }
+    uint32_t get_cram_sx() const { return di.cram_sx; }
+    uint32_t get_cram_sy() const { return di.cram_sy; }
 
     // State clearing, loading and saving
     void clear();
@@ -380,6 +383,11 @@ namespace mistral {
     rnode_t pnode_to_rnode(pnode_t pn) const;
     pnode_t rnode_to_pnode(rnode_t rn) const;
     invert_t rnode_is_inverting(rnode_t rn) const;
+
+    // Physical CRAM coordinates written when selecting this destination mux.
+    // Unknown nodes return false; fixed connections and nodes without a mux
+    // return true with an empty result. Does not inspect or mutate CRAM state.
+    bool rnode_mux_cram_bits(rnode_t rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const;
 
     std::vector<pnode_t> p2p_from(pnode_t pn) const;
     pnode_t p2p_to(pnode_t pn) const;
