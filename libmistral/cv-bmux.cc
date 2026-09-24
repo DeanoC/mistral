@@ -1135,6 +1135,10 @@ bool mistral::CycloneV::bmux_cram_bits(block_type_t btype, xycoords pos, bmux_ty
 				       std::vector<std::pair<uint32_t, uint32_t>> &bits) const
 {
   bits.clear();
+  // xycoords::v is 16 bits. tile_types has 0x4000 entries, so a raw v above
+  // 0x3fff is not a tile coordinate and must not be used as an index.
+  if(!(pos.v < tile_types.size()))
+    return false;
   if(btype != LAB && btype != MLAB)
     return false;
   if(btype == LAB && tile_types[pos.v] != T_LAB)

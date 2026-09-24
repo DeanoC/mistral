@@ -123,6 +123,9 @@ int main()
   check(!model->bmux_cram_bits(CV::LAB, empty, CV::CLK0_INV, 0, scratch), "empty tile rejects");
   check(scratch.empty(), "empty tile clears");
   scratch.emplace_back(1, 2);
+  check(!model->bmux_cram_bits(CV::LAB, CV::xycoords(0xffff), CV::CLK0_INV, 0, scratch), "out-of-range xycoords rejects");
+  check(scratch.empty(), "out-of-range xycoords clears");
+  scratch.emplace_back(1, 2);
   check(!model->bmux_cram_bits(CV::MLAB, lab, CV::CLK0_INV, 0, scratch), "LAB tile is not an MLAB");
   check(scratch.empty(), "wrong block type clears");
   scratch.emplace_back(1, 2);
