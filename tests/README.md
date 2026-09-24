@@ -95,3 +95,24 @@ build/tests/routing-inverter-cram --sample 20
 
 This is an offline table/accessor regression. It does not establish physical
 hardware acceptance or replace the final bitstream boundary comparison.
+
+## LAB/MLAB block-mux CRAM coordinates
+
+`bmux_cram_bits` is the non-dcram block-mux path for one LAB or MLAB field
+instance. `midx` is 0 for a lab-global field and `0 .. span-1` for a per-ALM
+field. Coordinates are the same decoded CRAM `(x, y)` grid as
+`CycloneV::diff`. M10K, DSP, HPS clocks, dcram, pram, and oram return false
+from this slice. `MISTRAL_BMUX_CRAM_BITS` is the feature macro.
+
+`bmux-cram-bits` checks that contract on `5CSEBA6U23I7`. The oracle writes
+every LAB field and every MLAB field through `bmux_b_set`, `bmux_m_set`,
+`bmux_n_set`, or `bmux_r_set` and requires the CRAM coordinates from
+`CycloneV::diff` to equal the query. It also rejects an empty tile, a M10K
+tile, a bad `midx`, and an MLAB-only mux asked of a LAB.
+
+```sh
+build/tests/bmux-cram-bits
+```
+
+This is an offline table/accessor regression. It does not establish physical
+hardware acceptance or replace the final bitstream boundary comparison.
