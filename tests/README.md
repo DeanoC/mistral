@@ -1,42 +1,47 @@
-# DSP port round trips
+# Tests
 
-`dsp-ports.cc` checks every DATAIN and RESULT port on every DSP site of the
-selected model. It catches missing upper routing tiles at the end of BEL
-spans. With a standalone Mistral CMake build in `build/`, run from the source
-root:
+Build the library as usual, then either `ctest` from the build directory or
+the commands below.  No hardware is accessed.
+
+## DSP port round trips
+
+`dsp-ports` walks every DATAIN and RESULT port on every DSP site of the
+selected model.  It fails when the upper routing tile is missing at the end
+of a BEL span.
 
 ```sh
-c++ -std=c++14 -Ilibmistral -Ibuild/tools -Ibuild/libmistral \
-  tests/dsp-ports.cc build/libmistral/libmistral.a -llzma -o build/dsp-ports
-build/dsp-ports 5CSEBA6U23I7
+cmake -S . -B build
+cmake --build build -j$(nproc)
+build/tests/dsp-ports 5CSEBA6U23I7
 ```
 
-For the library built inside nextpnr, replace `build/tools` and
-`build/libmistral` with the nextpnr build's `mistral/tools` and
-`mistral/libmistral` directories. No hardware is accessed.
+`5CSEBA6U23I7` has 112 DSP blocks.  Without marking `T_DSP2` on the row
+above each base, reverse lookup fails for ports that live on that upper
+tile when the span ends on the base row.
 
-The target device has 112 physical DSP blocks and 20,384 checked ports.
-The base `bfa096c1deac6180a3eee784693c28dac491ab18` fails 182 round trips;
-marking the upper tile when inserting each DSP base resolves those failures.
+## LAB/MLAB clock field oracle
 
-# LAB/MLAB clock field oracle
-
-The original tables interchanged `CLK0/1/2_INV` and `CLK0/1/2_SEL` physical
-addresses. Setting inversion instead selected CLKB, leaving a FF without a
-clock when only CLKA was routed. Corrected tables keep the public field names
-and defaults, but associate them with the proper configuration bits.
-`MISTRAL_CORRECT_LAB_CLOCK_MUXES` lets consumers reject inverted clocks when
-built against an older library.
+The original mux tables interchanged the physical addresses of
+`CLK0/1/2_INV` and `CLK0/1/2_SEL`.  Setting inversion selected CLKB instead,
+leaving a flip-flop without a clock when only CLKA was routed.  The corrected
+tables keep the public field names and defaults.  `MISTRAL_CORRECT_LAB_CLOCK_MUXES`
+lets consumers detect the corrected mapping.
 
 Quartus 17.0.2 fixed-placement positive/negative references with three
 independently enabled `cyclonev_ff` instances isolate every inversion bit.
 The two RBFs differ only in those bits and the generated JTAG identifier.
 The test loads the positive reference, sets all three `CLKx_INV` fields,
-normalizes JTAG_ID in both models and requires byte-for-byte equality after
-serialization. This checks against Quartus, not a self-consistent decompiler.
+normalizes `JTAG_ID`, and requires byte-for-byte equality after serialization.
 
-Run each Quartus build in a separate empty directory, replacing `MLAB` with
-`LAB` to exercise the other block type:
+Compressed references and a SHA-256 manifest live in
+[fixtures/lab-clock](fixtures/lab-clock/README.md):
+
+```sh
+python3 tests/run-lab-clock-oracle.py build/tests/lab-clock-oracle
+```
+
+To regenerate the references with Quartus 17.0.2, run each build in a
+separate empty directory:
 
 ```sh
 quartus_sh -t /absolute/path/tests/lab-clock-oracle.tcl pos MLAB
@@ -46,36 +51,4 @@ quartus_sh -t /absolute/path/tests/lab-clock-oracle.tcl neg MLAB
 quartus_sh --flow compile top
 ```
 
-Build and run the comparator from the source root:
-
-```sh
-c++ -std=c++14 -Ilibmistral -Ibuild/tools -Ibuild/libmistral \
-  tests/lab-clock-oracle.cc build/libmistral/libmistral.a -llzma -o build/lab-clock-oracle
-build/lab-clock-oracle /path/pos/output_files/top.rbf /path/neg/output_files/top.rbf MLAB 3
-```
-
-The fixtures use MLAB X8/Y32 or LAB X7/Y32 on `5CSEBA6U23I7`. The original
-`328cfb8046d6bcb979fa69df7cfb95bd6f7e73f8` fails; corrected tables pass for both
-block types. Separate 25%/75% mixed-edge references and the DE10-Nano
-functional capture diagnostic confirm the affected path. This is not a
-measurement of PLL duty accuracy or setup/hold margins on hardware.
-
-# Routing mux CRAM coordinates
-
-`routing-mux-cram.cc` checks the physical configuration footprint of seven
-routing muxes isolated from an outside-slot ZX81 composition difference,
-plus an inside-slot mux. Logical wire tile coordinates do not necessarily
-identify the tile containing its programmable bits. The test checks exact
-coordinates, half-open boundaries, output replacement, unknown nodes and a
-fixed connection with no programmable mux.
-
-```sh
-c++ -std=c++14 -Ilibmistral -Ibuild/tools -Ibuild/libmistral \
-  tests/routing-mux-cram.cc build/libmistral/libmistral.a -llzma -o build/routing-mux-cram
-build/routing-mux-cram
-```
-
-Use the nextpnr build include/library paths described above when testing its
-embedded library. This is an offline table/accessor regression; it does not
-establish physical hardware acceptance or replace the final bitstream boundary
-comparison.
+The fixtures use MLAB X8/Y32 or LAB X7/Y32 on `5CSEBA6U23I7`.

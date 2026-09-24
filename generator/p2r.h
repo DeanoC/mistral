@@ -4,8 +4,8 @@
 #include "nodes.h"
 
 struct p2r_info {
-  pnode_t p;
-  rnode_t r;
+  pnode_coords p;
+  rnode_coords r;
   uint32_t padding;
 };
 
@@ -15,7 +15,9 @@ public:
 
   P2RLoader(const NodesReader &nr, const std::vector<uint8_t> &data);
 
-  pnode_t find_r(rnode_t node) const;
+  pnode_coords find_r(rnode_coords node) const;
+
+  void convert_coords_to_index(const std::vector<uint8_t> &hdata);
 
 private:
   const NodesReader &nr;

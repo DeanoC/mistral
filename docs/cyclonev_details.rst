@@ -83,6 +83,11 @@ splitted in 6 parts, four Flip-Flops, two 1-bit adders and a lot of
 routing logic.  In addition a common control subblock selects and
 dispatches clock, enable, clear, etc signals.
 
+Each of the three LAB clocks has a CLKA/CLKB source mux (CLKx_SEL) and
+an optional inverter (CLKx_INV).  Quartus bitstream differentials show
+that the inverter and source-mux bits were previously swapped in the mux
+tables; the tables now match the generated configuration.
+
 Carry and share chain in the order lab (x, y+1) cell 9 -> cells 0-9 ->
 lab (x, u-1) cell 0.  The BTO, TTO and BYPASS muxes control the
 connections in between 5-cell blocks.
@@ -128,10 +133,11 @@ DSP
 
 The DSP blocks provide a multiply-adder with differents modes. Its large
 number of inputs and output makes it span two tiles vertically.
-The tile map marks both the base (``T_DSP``) and upper routing tile
-(``T_DSP2``), including when a BEL span ends at the base row. Only the
-base is listed in ``dsp_get_pos()``. This preserves reverse port lookup
-for input and result routes at the upper edge of a span.
+The tile map records both the base (``T_DSP``) and the upper routing
+tile (``T_DSP2``), including when a BEL span ends on the base row.
+Only the base is listed in ``dsp_get_pos()``.  That keeps reverse
+lookup working for input and result routes on the upper edge of a
+span.
 
 The modes are are:
 
@@ -489,7 +495,7 @@ HPS
 The interface between the FPGA and the Hard processor system is done
 through 37 specialized blocks of 28 different types.
 
-TODO: everything.  GOUT/GIN/DCMUX mapping is done except for HPS_CLOCKS.
+TODO: almost everything.
 
 HPS_BOOT
 """"""""
@@ -499,6 +505,9 @@ HPS_BOOT
 
 HPS_CLOCKS
 """"""""""
+
+This block contains 18 4-way muxes that select between HPS clocks and
+reset signals.  The selected signals are routed to clock muxes.
 
 .. include:: gendoc/hps_clocks-dmux.rst
 

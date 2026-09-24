@@ -1,9 +1,8 @@
 #ifndef MISTRAL_CYCLONEV_H
 #define MISTRAL_CYCLONEV_H
 
-// LAB/MLAB CLKx_INV and CLKx_SEL address the corrected physical bits.
+// LAB/MLAB CLKx_INV and CLKx_SEL refer to the Quartus-verified bit positions.
 #define MISTRAL_CORRECT_LAB_CLOCK_MUXES 1
-#define MISTRAL_ROUTING_MUX_CRAM_BITS 1
 
 #include <stdint.h>
 #include <string.h>
@@ -20,7 +19,15 @@
 
 namespace mistral {
   class CycloneV {
+  private:
+    struct die_info; // Opaque internal die information structure
+
   public:
+
+    //
+    // All the public constants
+    //
+
     enum rnode_type_t {
 #define P(x) x
 #include "cv-rnodetypes.ipp"
@@ -120,26 +127,6 @@ namespace mistral {
       DELAY_MIN
     };
 
-    static const char *const rnode_type_names[];
-    static const char *const block_type_names[];
-    static const char *const port_type_names[];
-    static const char *const bmux_type_names[];
-    static const char *const driver_type_names[];
-    static const char *const shape_type_names[];
-    static const char *const timing_slot_names[];
-    static const char *const edge_names[];
-    static const char *const delay_type_names[];
-
-    static const double timing_slot_temperature[];
-
-    rnode_type_t  rnode_type_lookup (const std::string &n) const;
-    block_type_t  block_type_lookup (const std::string &n) const;
-    port_type_t   port_type_lookup  (const std::string &n) const;
-    bmux_type_t   bmux_type_lookup  (const std::string &n) const;
-    timing_slot_t timing_slot_lookup(const std::string &n) const;
-    edge_t        edge_lookup       (const std::string &n) const;
-    delay_type_t  delay_type_lookup (const std::string &n) const;
-
     enum tile_type_t {
       T_EMPTY,
       T_LAB,
@@ -207,15 +194,6 @@ namespace mistral {
       RTM_UNSUPPORTED
     };
 
-    struct package_info_t {
-      int pin_count;
-      char type; // 'f', 'u' or 'm'
-      int width_in_pins;
-      int height_in_pins;
-      int width_in_mm;
-      int height_in_mm;
-    };
-
     enum pin_flags_t : uint32_t {
       PIN_IO_MASK    = 0x00000007,
       PIN_DPP        = 0x00000001, // Dedicated Programming Pin
@@ -243,25 +221,6 @@ namespace mistral {
       PIN_VREF       = 0x00000800,
       PIN_VSS        = 0x00000900,
       PIN_VSS_SENSE  = 0x00000a00,
-    };
-
-    struct pin_info_t {
-      uint8_t x;
-      uint8_t y;	
-      uint16_t pad;
-      uint32_t flags;
-      const char *name;
-      const char *function;
-      const char *io_block;
-      double r, c, l, length;
-      int delay_ps;
-      int index;
-    };
-
-    struct pkg_info_t {
-      const pin_info_t *pins;
-      uint16_t dqs_pos;
-      uint8_t dqs_index;
     };
 
     enum hps_index_t {
@@ -319,51 +278,291 @@ namespace mistral {
       CMUX_SWITCH
     };
 
+
+    //
+    // Name tables for some of the constants
+    //
+
+    static const char *const rnode_type_names[];
+    static const char *const block_type_names[];
+    static const char *const port_type_names[];
+    static const char *const bmux_type_names[];
+    static const char *const driver_type_names[];
+    static const char *const shape_type_names[];
+    static const char *const timing_slot_names[];
+    static const char *const edge_names[];
+    static const char *const delay_type_names[];
     static const char *const cmux_link_names[];
 
+    static const double timing_slot_temperature[];
+
+
+    //
+    // Lookup methods for some of the constants
+    //
+
+    rnode_type_t  rnode_type_lookup (const std::string &n) const;
+    block_type_t  block_type_lookup (const std::string &n) const;
+    port_type_t   port_type_lookup  (const std::string &n) const;
+    bmux_type_t   bmux_type_lookup  (const std::string &n) const;
+    timing_slot_t timing_slot_lookup(const std::string &n) const;
+    edge_t        edge_lookup       (const std::string &n) const;
+    delay_type_t  delay_type_lookup (const std::string &n) const;
+
+    //
+    // Public structures and types
+    //
+
+    // - tile coordinates
+    struct xycoords {
+      uint16_t v;
+
+      xycoords() : v(0) {}
+      xycoords(uint32_t x, uint32_t y) : v((x << 7) | y) {}
+      explicit xycoords(uint32_t _v) : v(_v) {}
+
+      uint32_t x() const noexcept { return (v >> 7) & 0x7f; }
+      uint32_t y() const noexcept { return v & 0x7f; }
+
+      bool operator == (const xycoords &p) const noexcept { return v == p.v; }
+      bool operator != (const xycoords &p) const noexcept { return v != p.v; }
+      bool operator <  (const xycoords &p) const noexcept { return v < p.v; }
+    };
+
+
+    // - routing node label as type and x/y/z coordinates
+    struct rnode_coords {
+      uint32_t v;
+
+      rnode_coords() : v(0) {}
+      explicit rnode_coords(uint32_t _v) : v(_v) {}
+      rnode_coords(rnode_type_t type, xycoords pos, uint32_t z) : v((type << 24) | (pos.v << 10) | z) {}
+      rnode_coords(rnode_type_t type, uint32_t x, uint32_t y, uint32_t z) : v((type << 24) | (x << 17) | (y << 10) | z) {}
+
+      rnode_type_t t() const noexcept { return rnode_type_t(v >> 24); }
+      xycoords     p() const noexcept { return xycoords((v >> 10) & 0x3fff); }
+      uint32_t     x() const noexcept { return (v >> 17) & 0x7f; }
+      uint32_t     y() const noexcept { return (v >> 10) & 0x7f; }
+      uint32_t     z() const noexcept { return v & 0x3ff; }
+
+      operator bool() const { return v != 0; }
+
+      bool operator == (const rnode_coords &p) const noexcept { return v == p.v; }
+      bool operator != (const rnode_coords &p) const noexcept { return v != p.v; }
+      bool operator <  (const rnode_coords &p) const noexcept { return v < p.v; }
+
+      std::string to_string() const;
+    };
+
+    // - port node label as block type, block x/y/index, port type, port index
+    struct pnode_coords {
+      uint64_t v;
+
+      pnode_coords() : v(0) {}
+      explicit pnode_coords(uint64_t _v) : v(_v) {}
+
+      pnode_coords(block_type_t bt, xycoords pos, port_type_t pt, int8_t bindex, int16_t pindex) :
+	v((uint64_t(bt) << 52) | (uint64_t(pt) << 40) | (uint64_t(bindex & 0xff) << 32) | (pos.v << 16) | (pindex & 0xffff)) {}
+      pnode_coords(block_type_t bt, uint32_t x, uint32_t y, port_type_t pt, int8_t bindex, int16_t pindex) :
+	v((uint64_t(bt) << 52) | (uint64_t(pt) << 40) | (uint64_t(bindex & 0xff) << 32) | (x << 23) | (y << 16)| (pindex & 0xffff)) {}
+
+      block_type_t bt() const noexcept { return block_type_t((v >> 52) & 0xff); }
+      port_type_t  pt() const noexcept { return port_type_t((v >> 40) & 0xfff); }
+      xycoords     p () const noexcept { return xycoords((v >> 16) & 0x3fff); }
+      uint32_t     x () const noexcept { return (v >> 23) & 0x7f; }
+      uint32_t     y () const noexcept { return (v >> 16) & 0x7f; }
+      int8_t       bi() const noexcept { return (v >> 32) & 0xff; }
+      int16_t      pi() const noexcept { return  v        & 0xffff; }
+
+      operator bool() const noexcept { return v != 0; }
+
+      bool operator == (const pnode_coords &p) const noexcept { return v == p.v; }
+      bool operator != (const pnode_coords &p) const noexcept { return v != p.v; }
+      bool operator <  (const pnode_coords &p) const noexcept { return v < p.v; }
+
+      std::string to_string() const;
+    };
+
+    // - package information
+    struct package_info_t {
+      int pin_count;
+      char type; // 'f', 'u' or 'm'
+      int width_in_pins;
+      int height_in_pins;
+      int width_in_mm;
+      int height_in_mm;
+    };
+
+    // - package pin information
+    struct pin_info_t {
+      uint8_t x;
+      uint8_t y;	
+      uint16_t pad;
+      uint32_t flags;
+      const char *name;
+      const char *function;
+      const char *io_block;
+      double r, c, l, length;
+      int delay_ps;
+      int index;
+    };
+
+    // - information of all the pins for a package
+    struct pkg_info_t {
+      const pin_info_t *pins;
+      uint16_t dqs_pos;
+      uint8_t dqs_index;
+    };
+
+    // - Model variant description
+    struct variant_info {
+      const char *name;
+      const die_info &die;
+      uint16_t idcode;
+      int alut, alm, memory, dsp, dpll, dll, hps;
+    };
+
+    // - Model description
+    struct Model {
+      const char *name;
+      const variant_info &variant;
+      package_type_t package;
+      char temperature; // (C)ommercial, (I)ndustrial or (A)utomotive
+      uint8_t speed, speed_grade;
+      uint8_t pcie, gxb, hmc;
+      uint16_t io, gpio;
+    };
+
+
+    // - Routing node as index
+    using rnode_index = uint32_t;
+
+    // - Routing node object
+    class rnode_object {
+      rnode_coords ro_rc;
+      rnode_index ro_ri;
+      uint8_t ro_pattern;
+      uint8_t ro_targets_count;
+      uint8_t ro_targets_caps_count;
+      uint8_t ro_drivers[2];
+      uint8_t ro_span;
+      uint8_t ro_srclen;
+      uint16_t ro_srcoff;
+      uint16_t ro_line_info_index;
+      uint16_t ro_driver_position;
+      uint32_t ro_fw_pos;
+
+    public:
+      inline rnode_coords rc() const noexcept { return ro_rc; }
+      inline rnode_index  ri() const noexcept { return ro_ri; }
+
+      inline uint32_t sources_count() const noexcept {
+	return ro_srclen;
+      }
+
+      inline const rnode_index *sources_begin() const noexcept {
+	return reinterpret_cast<const rnode_index *>(reinterpret_cast<const uint8_t *>(this) + sizeof(rnode_object));
+      }
+
+      inline const rnode_index *sources_end() const noexcept {
+	return sources_begin() + sources_count();
+      }
+
+      inline uint32_t targets_count() const noexcept {
+	return ro_targets_count;
+      }
+
+      inline const rnode_index *targets_begin() const noexcept {
+	return reinterpret_cast<const rnode_index *>(sources_end());
+      }
+
+      inline const rnode_index *targets_end() const noexcept {
+	return targets_begin() + targets_count();
+      }
+
+      inline uint32_t targets_caps_count() const noexcept {
+	return ro_targets_caps_count;
+      }
+
+      inline const float *targets_caps_begin() const noexcept {
+	return reinterpret_cast<const float *>(targets_end());
+      }
+
+      inline const float *targets_caps_end() const noexcept {
+	return targets_caps_begin() + targets_caps_count();
+      }
+
+      inline uint32_t target_positions_count() const noexcept {
+	return targets_count() + targets_caps_count();
+      }
+
+      inline const uint16_t *target_positions_begin() const noexcept {
+	return reinterpret_cast<const uint16_t *>(targets_caps_end());
+      }
+
+      inline const uint16_t *target_positions_end() const noexcept {
+	return target_positions_begin() + target_positions_count();
+      }
+
+      uint8_t driver(int index) const noexcept {
+	return ro_drivers[index];
+      }
+
+      uint8_t pattern() const noexcept {
+	return ro_pattern;
+      }
+
+      uint8_t sources_span() const noexcept {
+	return ro_span;
+      }
+
+      const uint8_t *sources_forward_mapping(const uint8_t *rsrc) const noexcept
+      {
+	return rsrc + ro_srcoff;
+      }
+
+      const uint8_t *sources_backward_mapping(const uint8_t *rsrc) const noexcept
+      {
+	return rsrc + ro_srcoff + ro_srclen;
+      }
+
+      uint16_t line_info_index() const noexcept {
+	return ro_line_info_index;
+      }
+
+      uint16_t driver_position() const noexcept {
+	return ro_driver_position;
+      }
+
+      uint32_t fw_pos() const noexcept {
+	return ro_fw_pos;
+      }
+
+      const rnode_object *next() const noexcept {
+	return reinterpret_cast<const rnode_object *>(target_positions_begin() + ((target_positions_count() + 1) & ~1));
+      }
+    };
+
+
+    // Block type for each HPS block in the hps_get_pos vector
     static const block_type_t hps_index_to_type[I_HPS_COUNT];
 
+    // Generic package information for every package_type_t
     static const package_info_t package_infos[5+3+3];
 
-    using pos_t = uint16_t;          // Tile position
-    using rnode_t = uint32_t;        // Route node id
-    using pnode_t = uint64_t;        // Port node id
+    // Array of known models (ends with name=nullptr entry)
+    static const Model models[];
 
-    static constexpr uint32_t pos2x(pos_t xy) { return (xy >> 7) & 0x7f; }
-    static constexpr uint32_t pos2y(pos_t xy) { return xy & 0x7f; }
-    static constexpr pos_t xy2pos(uint32_t x, uint32_t y) { return (x << 7) | y; }
 
-    static constexpr rnode_t rnode(rnode_type_t type, pos_t pos, uint32_t z) { return (type << 24) | (pos << 10) | z; }
-    static constexpr rnode_t rnode(rnode_type_t type, uint32_t x, uint32_t y, uint32_t z) { return (type << 24) | (x << 17) | (y << 10) | z; }
-    static constexpr rnode_type_t rn2t(rnode_t rn) { return rnode_type_t(rn >> 24); }
-    static constexpr pos_t rn2p(rnode_t rn) { return (rn >> 10) & 0x3fff; }
-    static constexpr uint32_t rn2x(rnode_t rn) { return (rn >> 17) & 0x7f; }
-    static constexpr uint32_t rn2y(rnode_t rn) { return (rn >> 10) & 0x7f; }
-    static constexpr uint32_t rn2z(rnode_t rn) { return rn & 0x3ff; }
-
-    static constexpr pnode_t pnode(block_type_t bt, pos_t pos, port_type_t pt, int8_t bindex, int16_t pindex) {
-      return (uint64_t(bt) << 52) | (uint64_t(pt) << 40) | (uint64_t(bindex & 0xff) << 32) | (pos << 16) | (pindex & 0xffff);
-    }
-
-    static constexpr pnode_t pnode(block_type_t bt, uint32_t x, uint32_t y, port_type_t pt, int8_t bindex, int16_t pindex) {
-      return (uint64_t(bt) << 52) | (uint64_t(pt) << 40) | (uint64_t(bindex & 0xff) << 32) | (x << 23) | (y << 16)| (pindex & 0xffff);
-    }
-
-    static constexpr block_type_t pn2bt(pnode_t pn) { return block_type_t((pn >> 52) & 0xff); }
-    static constexpr port_type_t  pn2pt(pnode_t pn) { return port_type_t((pn >> 40) & 0xfff); }
-    static constexpr pos_t        pn2p (pnode_t pn) { return (pn >> 16) & 0x3fff; }
-    static constexpr uint32_t     pn2x (pnode_t pn) { return (pn >> 23) & 0x7f; }
-    static constexpr uint32_t     pn2y (pnode_t pn) { return (pn >> 16) & 0x7f; }
-    static constexpr int8_t       pn2bi(pnode_t pn) { return (pn >> 32) & 0xff; }
-    static constexpr int16_t      pn2pi(pnode_t pn) { return  pn        & 0xffff; }
-
-    static std::string rn2s(rnode_t rn);
-    static std::string pn2s(pnode_t pn);
-
-    struct Model;
-
+    // Constructor from a chosen model
     CycloneV(const Model *m);
     ~CycloneV() = default;
+
+    // Indirect constructor from a model sku
+    // Hardcoded aliases
+    // - ms for 5CSEBA6U23I7 (de10-nano aka mister)
+    // - ap for 5CEBA4F23C8 (analogue pocket dev fpga)
+    static CycloneV *get_model(std::string model_name);
 
     // Chosen model
     const Model *current_model() const { return model; }
@@ -380,33 +579,33 @@ namespace mistral {
     void rbf_save(std::vector<uint8_t> &data);
 
     // Routing
-    rnode_t pnode_to_rnode(pnode_t pn) const;
-    pnode_t rnode_to_pnode(rnode_t rn) const;
-    invert_t rnode_is_inverting(rnode_t rn) const;
+    rnode_index rc2ri(rnode_coords rc) const;
+    const rnode_object *rc2ro(rnode_coords rc) const;
+    const rnode_object *ri2ro(rnode_index ri) const;
+    const rnode_coords ri2rc(rnode_index ri) const { return ri == 0xffffffff ? rnode_coords() : ri2ro(ri)->rc(); }
 
-    // Physical CRAM coordinates written when selecting this destination mux.
-    // Unknown nodes return false; fixed connections and nodes without a mux
-    // return true with an empty result. Does not inspect or mutate CRAM state.
-    bool rnode_mux_cram_bits(rnode_t rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const;
+    rnode_index pnode_to_rnode(pnode_coords pn) const;
+    pnode_coords rnode_to_pnode(rnode_index rn) const;
+    invert_t rnode_is_inverting(rnode_index rn) const;
 
-    std::vector<pnode_t> p2p_from(pnode_t pn) const;
-    pnode_t p2p_to(pnode_t pn) const;
-    pnode_t hmc_get_bypass(pnode_t pn) const;
+    std::vector<pnode_coords> p2p_from(pnode_coords pn) const;
+    pnode_coords p2p_to(pnode_coords pn) const;
+    pnode_coords hmc_get_bypass(pnode_coords pn) const;
 
-    std::vector<std::pair<pnode_t, rnode_t>> get_all_p2r() const;
-    std::vector<std::pair<pnode_t, pnode_t>> get_all_p2p() const;
-    std::vector<std::pair<pnode_t, rnode_t>> get_all_p2ri() const;
+    std::vector<std::pair<pnode_coords, rnode_index>> get_all_p2r() const;
+    std::vector<std::pair<pnode_coords, pnode_coords>> get_all_p2p() const;
+    std::vector<std::pair<pnode_coords, rnode_index>> get_all_p2ri() const;
 
-    void rnode_link(rnode_t n1, rnode_t n2);
-    void rnode_link(pnode_t p1, rnode_t n2);
-    void rnode_link(rnode_t n1, pnode_t p2);
-    void rnode_link(pnode_t p1, pnode_t p2);
-    void rnode_unlink(rnode_t n2);
-    void rnode_unlink(pnode_t p2);
+    void rnode_link(rnode_index n1, rnode_index n2);
+    void rnode_link(pnode_coords p1, rnode_index n2);
+    void rnode_link(rnode_index n1, pnode_coords p2);
+    void rnode_link(pnode_coords p1, pnode_coords p2);
+    void rnode_unlink(rnode_index n2);
+    void rnode_unlink(pnode_coords p2);
 
-    std::vector<std::pair<rnode_t, rnode_t>> route_all_active_links() const;
-    std::vector<std::pair<rnode_t, rnode_t>> route_frontier_links() const;
-    std::vector<std::vector<rnode_t>> route_frontier_links_with_path() const;
+    std::vector<std::pair<rnode_index, rnode_index>> route_all_active_links() const;
+    std::vector<std::pair<rnode_index, rnode_index>> route_frontier_links() const;
+    std::vector<std::vector<rnode_index>> route_frontier_links_with_path() const;
 
     // Clock muxes
     static const std::pair<uint8_t, uint8_t> cmuxhg_link_table[4][64];
@@ -416,36 +615,36 @@ namespace mistral {
     static const std::pair<uint8_t, uint8_t> cmuxvr_link_table[20][16];
 
     // Blocks positions 
-    const std::vector<block_type_t> &pos_get_bels(pos_t pos) const { return tile_bels[pos]; }
+    const std::vector<block_type_t> &pos_get_bels(xycoords pos) const { return tile_bels[pos.v]; }
 
-    const std::vector<pos_t> &lab_get_pos()    const { return lab_pos;    }
-    const std::vector<pos_t> &mlab_get_pos()   const { return mlab_pos;   }
-    const std::vector<pos_t> &m10k_get_pos()   const { return m10k_pos;   }
-    const std::vector<pos_t> &dsp_get_pos()    const { return dsp_pos;    }
-    const std::vector<pos_t> &hps_get_pos()    const { return hps_pos;    }
-    const std::vector<pos_t> &gpio_get_pos()   const { return gpio_pos;   }
-    const std::vector<pos_t> &dqs16_get_pos()  const { return dqs16_pos;  }
-    const std::vector<pos_t> &fpll_get_pos()   const { return fpll_pos;   }
-    const std::vector<pos_t> &cmuxc_get_pos()  const { return cmuxc_pos;  }
-    const std::vector<pos_t> &cmuxv_get_pos()  const { return cmuxv_pos;  }
-    const std::vector<pos_t> &cmuxh_get_pos()  const { return cmuxh_pos;  }
-    const std::vector<pos_t> &dll_get_pos()    const { return dll_pos;    }
-    const std::vector<pos_t> &hssi_get_pos()   const { return hssi_pos;   }
-    const std::vector<pos_t> &cbuf_get_pos()   const { return cbuf_pos;   }
-    const std::vector<pos_t> &lvl_get_pos()    const { return lvl_pos;    }
-    const std::vector<pos_t> &ctrl_get_pos()   const { return ctrl_pos;   }
-    const std::vector<pos_t> &pma3_get_pos()   const { return pma3_pos;   }
-    const std::vector<pos_t> &serpar_get_pos() const { return serpar_pos; }
-    const std::vector<pos_t> &term_get_pos()   const { return term_pos;   }
-    const std::vector<pos_t> &hip_get_pos()    const { return hip_pos;    }
-    const std::vector<pos_t> &hmc_get_pos()    const { return hmc_pos;    }
+    const std::vector<xycoords> &lab_get_pos()    const { return lab_pos;    }
+    const std::vector<xycoords> &mlab_get_pos()   const { return mlab_pos;   }
+    const std::vector<xycoords> &m10k_get_pos()   const { return m10k_pos;   }
+    const std::vector<xycoords> &dsp_get_pos()    const { return dsp_pos;    }
+    const std::vector<xycoords> &hps_get_pos()    const { return hps_pos;    }
+    const std::vector<xycoords> &gpio_get_pos()   const { return gpio_pos;   }
+    const std::vector<xycoords> &dqs16_get_pos()  const { return dqs16_pos;  }
+    const std::vector<xycoords> &fpll_get_pos()   const { return fpll_pos;   }
+    const std::vector<xycoords> &cmuxc_get_pos()  const { return cmuxc_pos;  }
+    const std::vector<xycoords> &cmuxv_get_pos()  const { return cmuxv_pos;  }
+    const std::vector<xycoords> &cmuxh_get_pos()  const { return cmuxh_pos;  }
+    const std::vector<xycoords> &dll_get_pos()    const { return dll_pos;    }
+    const std::vector<xycoords> &hssi_get_pos()   const { return hssi_pos;   }
+    const std::vector<xycoords> &cbuf_get_pos()   const { return cbuf_pos;   }
+    const std::vector<xycoords> &lvl_get_pos()    const { return lvl_pos;    }
+    const std::vector<xycoords> &ctrl_get_pos()   const { return ctrl_pos;   }
+    const std::vector<xycoords> &pma3_get_pos()   const { return pma3_pos;   }
+    const std::vector<xycoords> &serpar_get_pos() const { return serpar_pos; }
+    const std::vector<xycoords> &term_get_pos()   const { return term_pos;   }
+    const std::vector<xycoords> &hip_get_pos()    const { return hip_pos;    }
+    const std::vector<xycoords> &hmc_get_pos()    const { return hmc_pos;    }
 
     // Block muxes
     enum { MT_MUX, MT_NUM, MT_BOOL, MT_RAM };
 
     struct bmux_setting_t {
       block_type_t btype;
-      pos_t pos;
+      xycoords pos;
       bmux_type_t mux;
       int midx;
       int type;
@@ -454,14 +653,14 @@ namespace mistral {
       std::vector<uint8_t> r;
     };
 
-    int bmux_type(block_type_t btype, pos_t pos, bmux_type_t mux, int midx) const;
-    bool bmux_get(block_type_t btype, pos_t pos, bmux_type_t mux, int midx, bmux_setting_t &s) const;
+    int bmux_type(block_type_t btype, xycoords pos, bmux_type_t mux, int midx) const;
+    bool bmux_get(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, bmux_setting_t &s) const;
     bool bmux_set(const bmux_setting_t &s);
-    bool bmux_m_set(block_type_t btype, pos_t pos, bmux_type_t mux, int midx, bmux_type_t s);
-    bool bmux_n_set(block_type_t btype, pos_t pos, bmux_type_t mux, int midx, uint32_t s);
-    bool bmux_b_set(block_type_t btype, pos_t pos, bmux_type_t mux, int midx, bool s);
-    bool bmux_r_set(block_type_t btype, pos_t pos, bmux_type_t mux, int midx, uint64_t s);
-    bool bmux_r_set(block_type_t btype, pos_t pos, bmux_type_t mux, int midx, const std::vector<uint8_t> &s);
+    bool bmux_m_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, bmux_type_t s);
+    bool bmux_n_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, uint32_t s);
+    bool bmux_b_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, bool s);
+    bool bmux_r_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, uint64_t s);
+    bool bmux_r_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, const std::vector<uint8_t> &s);
 
     std::vector<bmux_setting_t> bmux_get() const;
 
@@ -489,19 +688,19 @@ namespace mistral {
 
     // Programmable inverters
     struct inv_setting_t {
-      rnode_t node;
+      rnode_index node;
       bool value;
       bool def; // Is the current value the default?
     };
 
     // Returns (active, default) pairs
     std::vector<inv_setting_t> inv_get() const;
-    bool inv_set(rnode_t node, bool value);
+    bool inv_set(rnode_index node, bool value);
 
 
     // Package/pins/pads related functions
-    const pin_info_t *pin_find_pos(pos_t pos, int index) const;
-    const pin_info_t *pin_find_pnode(pnode_t pn) const;
+    const pin_info_t *pin_find_pos(xycoords pos, int index) const;
+    const pin_info_t *pin_find_pnode(pnode_coords pn) const;
     const pin_info_t *pin_find_name(const std::string &name) const;
 
     // Debug stuff
@@ -515,9 +714,7 @@ namespace mistral {
     struct p2p_info;
     struct fixed_block_info;
     struct inverter_info;
-    struct dcram_info;
 
-  public:
     // Die information structure
     struct die_info {
       const char *name;
@@ -526,10 +723,7 @@ namespace mistral {
       uint32_t cram_sx, cram_sy;
       uint8_t tile_sx, tile_sy;
       uint8_t hps_x, hps_y;
-      uint32_t ioblocks_count;
-      uint32_t dqs16_count;
-      uint32_t forced_1_count;
-      pos_t    ctrl;
+      xycoords    ctrl;
 
       uint64_t default_oram[12];
 
@@ -545,29 +739,6 @@ namespace mistral {
       const uint8_t *const routing_data_start;
       const uint8_t *const routing_data_end;
       const uint8_t *const bel_spans;
-      const ioblock_info *const ioblocks;
-      const dqs16_info *const dqs16s;
-      const fixed_block_info *const fixed_blocks;
-      const dcram_info *const dcram_pos;
-      const dcram_info *const forced_1_pos;
-      const pos_t *const hps_blocks;
-    };
-
-    struct variant_info {
-      const char *name;
-      const die_info &die;
-      uint16_t idcode;
-      int alut, alm, memory, dsp, dpll, dll, hps;
-    };
-
-    struct Model {
-      const char *name;
-      const variant_info &variant;
-      package_type_t package;
-      char temperature; // (C)ommercial, (I)ndustrial or (A)utomotive
-      uint8_t speed, speed_grade;
-      uint8_t pcie, gxb, hmc;
-      uint16_t io, gpio;
     };
 
     static const die_info e50f;
@@ -585,28 +756,40 @@ namespace mistral {
     static const variant_info v_e300b, v_e300f, v_gt300f, v_gx300b, v_gx300f;
     static const variant_info v_se30b, v_se30bs, v_se30m, v_se50b, v_se50bs, v_se50m, v_sx30f, v_sx50f;
     static const variant_info v_se120b, v_se120bs, v_se120m, v_se90b, v_se90bs, v_se90m, v_st120f, v_st90f, v_sx120f, v_sx90f;
-    
-    static const Model models[];
-    static CycloneV *get_model(std::string model_name);
+
+  public:    
 
   private:
     enum bmux_ram_t { BM_CRAM, BM_PRAM, BM_ORAM, BM_DCRAM };
 
-    using fpos_t = uint32_t;
+    using fxycoords = uint32_t;
 
     struct data_header {
-      uint32_t off_rnode;
-      uint32_t off_rnode_end;
-      uint32_t off_rnode_hash;
-      uint32_t off_line_info;
-      uint32_t off_p2r_info;
-      uint32_t off_p2p_info;
-      uint32_t off_inv_info;
-      uint32_t size_rnode_opaque_hash;
-      uint32_t count_rnode;
+      uint32_t off_ro;
+      uint32_t off_roh;
+      uint32_t off_ri;
+      uint32_t off_rsrc;
+      uint32_t off_line;
+      uint32_t off_p2r;
+      uint32_t off_p2p;
+      uint32_t off_inv;
+      uint32_t off_1;
+      uint32_t off_dcram;
+      uint32_t off_hps;
+      uint32_t off_fixed;
+      uint32_t off_dqs16;
+      uint32_t off_iob;
+
+      uint32_t count_ro;
+      uint32_t count_ri;
+      uint32_t count_rsrc;
       uint32_t count_p2r;
       uint32_t count_p2p;
       uint32_t count_inv;
+      uint32_t count_1;
+      uint32_t count_dcram;
+      uint32_t count_dqs16;
+      uint32_t count_iob;
     };
 
     struct global_data_header {
@@ -614,21 +797,6 @@ namespace mistral {
       uint32_t off_dnode_table2;
       uint32_t off_dnode_table3;
       uint32_t off_dnode_drivers;
-    };
-    
-    struct rnode_base {
-      rnode_t node;
-      uint8_t pattern;
-      uint8_t target_count;
-      uint8_t drivers[2];
-      uint16_t line_info_index;
-      uint16_t driver_position;
-      uint32_t fw_pos;
-    }; // Followed by up to 44 sources and up to 64 targets and up to 64 target_positions.  Aligned to 4 bytes.
-
-    union rnode_target {
-      rnode_t rn;
-      float caps;
     };
     
     struct rnode_line_information {
@@ -716,158 +884,19 @@ namespace mistral {
     };
 
   public:
-    class rnode_source_iterator : public std::iterator<std::bidirectional_iterator_tag, rnode_t> {
-    public:
-      rnode_source_iterator(const rnode_t *_rn) : rn(_rn) {}
-      rnode_source_iterator(const rnode_source_iterator &i) : rn(i.rn) {}
-
-      rnode_source_iterator &operator++() {
-	while(!*rn)
-	  rn++;
-	rn++;
-	return *this;
-      }
-
-      rnode_source_iterator operator++(int) {
-	const rnode_t *rn1 = rn;
-	while(!*rn1)
-	  rn1++;
-	return rnode_source_iterator(rn+1);
-      }
-
-      rnode_source_iterator &operator--() {
-	rn--;
-	while(!rn[-1])
-	  rn--;
-	return *this;
-      }
-
-      rnode_source_iterator operator--(int) {
-	const rnode_t *rn1 = rn-1;
-	while(!rn1[-1])
-	  rn1--;
-	return rnode_source_iterator(rn1);
-      }
-
-      rnode_t operator*() {
-	const rnode_t *rn1 = rn;
-	while(!*rn1)
-	  rn1++;
-	return *rn1;
-      }
-
-      bool operator==(const rnode_source_iterator &rhs) const {
-	return rn == rhs.rn;
-      }
-
-      bool operator!=(const rnode_source_iterator &rhs) const {
-	return rn != rhs.rn;
-      }
-
-    private:
-      const rnode_t *rn;
-    };
-      
-    class rnode_source_container_proxy {
-    public:
-      rnode_source_container_proxy(const rnode_base *_rn) : rn(_rn) {}
-      rnode_source_iterator begin() const {
-	const rnode_t *start = rnode_sources(rn);
-	if(rn->pattern == 0xff)
-	  return rnode_source_iterator(start);
-	int span = rn->pattern == 0xfe ? 1 : rmux_patterns[rn->pattern].span;
-	const rnode_t *end = start + span;
-	while(start != end && !*start)
-	  start++;
-	if(start == end)
-	  start = rnode_sources(rn);
-	return rnode_source_iterator(start);
-      }
-
-      rnode_source_iterator end() const {
-	const rnode_t *start = rnode_sources(rn);
-	if(rn->pattern == 0xff)
-	  return rnode_source_iterator(start);
-	int span = rn->pattern == 0xfe ? 1 : rmux_patterns[rn->pattern].span;
-	const rnode_t *end = start + span;
-	while(end > start && !end[-1])
-	  end --;
-	return rnode_source_iterator(end);
-      }
-
-    private:
-      const rnode_base *rn;
-    };
+    rnode_timing_mode_t rnode_timing_get_mode(rnode_index rn) const;
+    void rnode_timing_build_circuit(rnode_index rn, timing_slot_t temp, delay_type_t delay, edge_t edge,
+				    AnalogSim &sim, int &input, std::vector<std::pair<rnode_index, int>> &outputs) const;
+    void rnode_timing_build_circuit_si(rnode_index rn, timing_slot_t temp, speed_info_t si, edge_t edge,
+				       AnalogSim &sim, int &input, std::vector<std::pair<rnode_index, int>> &outputs) const;
     
-
-    class rnode_proxy {
-      friend class CycloneV;
-
-    public:
-      rnode_proxy(const rnode_base *_rn) : rn(_rn) {}
-      rnode_t id() const { return rn->node; }
-      int pattern() const { return rn->pattern; }
-      rnode_source_container_proxy sources() const { return rnode_source_container_proxy(rn); }
-
-    private:
-      const rnode_base *rn;
-
-      operator const rnode_base&() const { return *rn; }
-    };
-
-    class rnode_iterator : public std::iterator<std::input_iterator_tag, rnode_proxy> {
-    public:
-      rnode_iterator(const rnode_base *_rn) : rn(_rn) {}
-      rnode_iterator(const rnode_iterator &i) : rn(i.rn) {}
-
-      rnode_iterator &operator++() {
-	rn = rnode_next(rn);
-	return *this;
-      }
-
-      rnode_iterator operator++(int) {
-	return rnode_iterator(rnode_next(rn));
-      }
-
-      rnode_proxy operator*() {
-	return rnode_proxy(rn);
-      }
-
-      bool operator==(const rnode_iterator &rhs) const {
-	return rn == rhs.rn;
-      }
-
-      bool operator!=(const rnode_iterator &rhs) const {
-	return rn != rhs.rn;
-      }
-
-    private:
-      const rnode_base *rn;
-    };
-      
-    class rnode_container_proxy {
-    public:
-      rnode_container_proxy(const CycloneV *_data) : data(_data) {}
-      rnode_iterator begin() const { return rnode_iterator(reinterpret_cast<const rnode_base *>(data->rnode_info)); }
-      rnode_iterator end() const { return rnode_iterator(reinterpret_cast<const rnode_base *>(data->rnode_info_end)); }
-
-    private:
-      const CycloneV *data;
-    };
-
-    rnode_container_proxy rnodes() const { return rnode_container_proxy(this); }
-
-    rnode_timing_mode_t rnode_timing_get_mode(rnode_t rn) const;
-    void rnode_timing_build_circuit(rnode_t rn, timing_slot_t temp, delay_type_t delay, edge_t edge,
-				    AnalogSim &sim, int &input, std::vector<std::pair<rnode_t, int>> &outputs) const;
-    void rnode_timing_build_circuit_si(rnode_t rn, timing_slot_t temp, speed_info_t si, edge_t edge,
-				       AnalogSim &sim, int &input, std::vector<std::pair<rnode_t, int>> &outputs) const;
-    
-    void rnode_timing_build_input_wave(rnode_t rn, timing_slot_t temp, delay_type_t delay, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
-    void rnode_timing_build_input_wave_si(rnode_t rn, timing_slot_t temp, speed_info_t si, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
+    void rnode_timing_build_input_wave(rnode_index rn, timing_slot_t temp, delay_type_t delay, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
+    void rnode_timing_build_input_wave_si(rnode_index rn, timing_slot_t temp, speed_info_t si, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
 
     void rnode_timing_trim_wave(timing_slot_t temp, delay_type_t delay, const AnalogSim::wave &sw, AnalogSim::wave &dw) const;
     void rnode_timing_trim_wave_si(timing_slot_t temp, speed_info_t si, const AnalogSim::wave &sw, AnalogSim::wave &dw) const;
+
+    uint32_t rnode_index_count() const { return dhead->count_ri; }
 
   private:
     struct bmux_sel_entry {
@@ -932,18 +961,18 @@ namespace mistral {
     static const rmux_pattern rmux_patterns[70+4];
 
     struct p2r_info {
-      pnode_t p;
-      rnode_t r;
+      pnode_coords p;
+      rnode_index r;
       uint32_t padding;
     };
 
     struct p2p_info {
-      pnode_t s;
-      pnode_t d;
+      pnode_coords s;
+      pnode_coords d;
     };
 
     struct ioblock_info {
-      pos_t pos;
+      xycoords pos;
       uint8_t idx;
       uint8_t tidx;
       block_type_t btype;
@@ -951,12 +980,12 @@ namespace mistral {
     };
 
     struct dqs16_info {
-      pos_t pos;
+      xycoords pos;
       uint32_t pram;
     };
 
     struct fixed_block_info {
-      pos_t pos;
+      xycoords pos;
       uint32_t pram;
     };
 
@@ -973,13 +1002,8 @@ namespace mistral {
 	DEF_MASK = 0xf0000000,
       };
       
-      rnode_t node;
+      rnode_index node;
       uint32_t pos_and_def;
-    };
-
-    struct dcram_info {
-      uint16_t x;
-      uint16_t y;
     };
 
     enum {
@@ -1000,10 +1024,6 @@ namespace mistral {
     };
 
     static const uint8_t e50f_bel_spans_info[];
-    static const ioblock_info e50f_ioblocks_info[];
-    static const dqs16_info e50f_dqs16_info[];
-    static const fixed_block_info e50f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info e50f_forced_1_info[12];
     static const pin_info_t e50f_pins_f17[256];
     static const pin_info_t e50f_pins_f23[484];
     static const pin_info_t e50f_pins_u15[324];
@@ -1016,11 +1036,6 @@ namespace mistral {
     static const pkg_info_t e50f_package_m13;
 
     static const uint8_t gx25f_bel_spans_info[];
-    static const ioblock_info gx25f_ioblocks_info[];
-    static const dqs16_info gx25f_dqs16_info[];
-    static const fixed_block_info gx25f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info gx25f_dcram_pos[];
-    static const dcram_info gx25f_forced_1_info[20];
     static const pin_info_t gx25f_pins_f23[484];
     static const pin_info_t gx25f_pins_u15[324];
     static const pin_info_t gx25f_pins_u19[484];
@@ -1029,11 +1044,6 @@ namespace mistral {
     static const pkg_info_t gx25f_package_u19;
 
     static const uint8_t gt75f_bel_spans_info[];
-    static const ioblock_info gt75f_ioblocks_info[];
-    static const dqs16_info gt75f_dqs16_info[];
-    static const fixed_block_info gt75f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info gt75f_dcram_pos[];
-    static const dcram_info gt75f_forced_1_info[20];
     static const pin_info_t gt75f_pins_f23[484];
     static const pin_info_t gt75f_pins_f27[672];
     static const pin_info_t gt75f_pins_u19[484];
@@ -1046,10 +1056,6 @@ namespace mistral {
     static const pkg_info_t gt75f_package_m13;
 
     static const uint8_t gt150f_bel_spans_info[];
-    static const ioblock_info gt150f_ioblocks_info[];
-    static const dqs16_info gt150f_dqs16_info[];
-    static const fixed_block_info gt150f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info gt150f_dcram_pos[];
     static const pin_info_t gt150f_pins_f23[484];
     static const pin_info_t gt150f_pins_f27[672];
     static const pin_info_t gt150f_pins_f31[896];
@@ -1062,11 +1068,6 @@ namespace mistral {
     static const pkg_info_t gt150f_package_m15;
 
     static const uint8_t gt300f_bel_spans_info[];
-    static const ioblock_info gt300f_ioblocks_info[];
-    static const dqs16_info gt300f_dqs16_info[];
-    static const fixed_block_info gt300f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info gt300f_dcram_pos[];
-    static const dcram_info gt300f_forced_1_info[28];
     static const pin_info_t gt300f_pins_f23[484];
     static const pin_info_t gt300f_pins_f27[672];
     static const pin_info_t gt300f_pins_f31[896];
@@ -1079,23 +1080,12 @@ namespace mistral {
     static const pkg_info_t gt300f_package_u19;
 
     static const uint8_t sx50f_bel_spans_info[];
-    static const ioblock_info sx50f_ioblocks_info[];
-    static const dqs16_info sx50f_dqs16_info[];
-    static const fixed_block_info sx50f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info sx50f_dcram_pos[];
-    static const pos_t sx50f_hps_info[I_HPS_COUNT];
     static const pin_info_t sx50f_pins_u19[484];
     static const pin_info_t sx50f_pins_u23[672];
     static const pkg_info_t sx50f_package_u19;
     static const pkg_info_t sx50f_package_u23;
 
     static const uint8_t sx120f_bel_spans_info[];
-    static const ioblock_info sx120f_ioblocks_info[];
-    static const dqs16_info sx120f_dqs16_info[];
-    static const fixed_block_info sx120f_fixed_blocks_info[FB_COUNT];
-    static const dcram_info sx120f_dcram_pos[];
-    static const dcram_info sx120f_forced_1_info[72];
-    static const pos_t sx120f_hps_info[I_HPS_COUNT];
     static const pin_info_t sx120f_pins_f31[896];
     static const pin_info_t sx120f_pins_u19[484];
     static const pin_info_t sx120f_pins_u23[672];
@@ -1114,43 +1104,45 @@ namespace mistral {
     std::array<tile_type_t, 0x4000> tile_types;
     std::array<std::vector<block_type_t>, 0x4000> tile_bels;
 
-    std::vector<pos_t> lab_pos;
-    std::vector<pos_t> mlab_pos;
-    std::vector<pos_t> m10k_pos;
-    std::vector<pos_t> dsp_pos;
-    std::vector<pos_t> hps_pos;
-
-    std::vector<pos_t> gpio_pos;
-    std::vector<pos_t> dqs16_pos;
-    std::vector<pos_t> fpll_pos;
-    std::vector<pos_t> cmuxc_pos;
-    std::vector<pos_t> cmuxv_pos;
-    std::vector<pos_t> cmuxh_pos;
-    std::vector<pos_t> dll_pos;
-    std::vector<pos_t> hssi_pos;
-    std::vector<pos_t> cbuf_pos;
-    std::vector<pos_t> lvl_pos;
-    std::vector<pos_t> ctrl_pos;
-    std::vector<pos_t> pma3_pos;
-    std::vector<pos_t> serpar_pos;
-    std::vector<pos_t> term_pos;
-    std::vector<pos_t> hip_pos;
-    std::vector<pos_t> hmc_pos;
-
-    std::unordered_map<pnode_t, rnode_t> p2r_map;
-    std::unordered_map<rnode_t, pnode_t> r2p_map;
+    std::vector<xycoords> lab_pos;
+    std::vector<xycoords> mlab_pos;
+    std::vector<xycoords> m10k_pos;
+    std::vector<xycoords> dsp_pos;
+    std::vector<xycoords> hps_pos;
+    std::vector<xycoords> gpio_pos;
+    std::vector<xycoords> dqs16_pos;
+    std::vector<xycoords> fpll_pos;
+    std::vector<xycoords> cmuxc_pos;
+    std::vector<xycoords> cmuxv_pos;
+    std::vector<xycoords> cmuxh_pos;
+    std::vector<xycoords> dll_pos;
+    std::vector<xycoords> hssi_pos;
+    std::vector<xycoords> cbuf_pos;
+    std::vector<xycoords> lvl_pos;
+    std::vector<xycoords> ctrl_pos;
+    std::vector<xycoords> pma3_pos;
+    std::vector<xycoords> serpar_pos;
+    std::vector<xycoords> term_pos;
+    std::vector<xycoords> hip_pos;
+    std::vector<xycoords> hmc_pos;
 
     std::vector<std::unique_ptr<uint8_t[]>> decompressed_data_storage;
     const data_header *dhead;
-    const uint8_t *rnode_info;
-    const uint8_t *rnode_info_end;
-    const uint8_t *rnode_hash;
-    const uint32_t *rnode_hash_lookup;
+    const rnode_object *ro_begin, *ro_end;
+    const uint8_t *roh_info;
+    const uint32_t *ri_info;
+    const uint8_t *rsrc_info;
     const rnode_line_information *rli_data;
 
     const p2r_info *p2r_infos;
     const p2p_info *p2p_infos;
     const inverter_info *inverter_infos;
+    const uint32_t *one_infos;
+    const uint32_t *dcram_infos;
+    const xycoords *hps_infos;
+    const fixed_block_info *fixed_infos;
+    const dqs16_info *dqs16_infos;
+    const ioblock_info *iob_infos;
 
     const global_data_header *gdhead;
     const dnode_lookup *dn_lookup;
@@ -1163,8 +1155,8 @@ namespace mistral {
     void rmux_load();
     void add_cram_blocks();
     void add_pram_blocks();
-    void add_pram_fixed(std::vector<pos_t> &pos, block_type_t block, int start, int count);
-    uint32_t find_pram_fixed(pos_t p, int start, int count) const;
+    void add_pram_fixed(std::vector<xycoords> &pos, block_type_t block, int start, int count);
+    uint32_t find_pram_fixed(xycoords p, int start, int count) const;
 
     uint32_t max_pram_block_size() const;
 
@@ -1178,98 +1170,54 @@ namespace mistral {
     static uint16_t crc16(const uint8_t *src, uint32_t len);
     uint32_t crc32(const uint8_t *src) const;
 
-    const rnode_base *rnode_lookup(rnode_t rn) const;
-
-    static inline const rnode_base *rnode_next(const rnode_base *r) {
-      const uint8_t *p = reinterpret_cast<const uint8_t *>(r);
-      p += sizeof(rnode_base);
-      p += r->pattern == 0xff ? 0 : r->pattern == 0xfe ? 4 : 4*rmux_patterns[r->pattern].span;
-      p += 4*r->target_count;
-      p += 2*((r->target_count+1) & ~1);
-      return reinterpret_cast<const rnode_base *>(p);
-    }
-
-    static inline const rnode_t *rnode_sources(const rnode_base *r) {
-      return reinterpret_cast<const uint32_t *>(reinterpret_cast<const uint8_t *>(r) + sizeof(rnode_base));
-    }
-
-    static inline const rnode_t *rnode_sources(const rnode_base &r) {
-      return rnode_sources(&r);
-    }
-
-    static inline const rnode_target *rnode_targets(const rnode_base *r) {
-      const uint8_t *p = reinterpret_cast<const uint8_t *>(r);
-      p += sizeof(rnode_base);
-      p += r->pattern == 0xff ? 0 : r->pattern == 0xfe ? 4 : 4*rmux_patterns[r->pattern].span;
-      return reinterpret_cast<const rnode_target *>(p);
-    }
-
-    static inline const rnode_target *rnode_targets(const rnode_base &r) {
-      return rnode_targets(&r);
-    }
-
-    static inline const uint16_t *rnode_target_positions(const rnode_base *r) {
-      const uint8_t *p = reinterpret_cast<const uint8_t *>(r);
-      p += sizeof(rnode_base);
-      p += r->pattern == 0xff ? 0 : r->pattern == 0xfe ? 4 : 4*rmux_patterns[r->pattern].span;
-      p += 4*r->target_count;
-      return reinterpret_cast<const uint16_t *>(p);
-    }
-
-    static inline const uint16_t *rnode_target_positions(const rnode_base &r) {
-      return rnode_target_positions(&r);
-    }
-
-    uint32_t rmux_get_val(const rnode_base &r) const;
-    void rmux_set_val(const rnode_base &r, uint32_t val);
-    int rmux_get_slot(const rnode_base &r) const;
-    rnode_t rmux_get_source(const rnode_base &r) const;
-    inline rnode_t rmux_get_source(const rnode_base *r) const {
+    uint32_t rmux_get_val(const rnode_object &r) const;
+    void rmux_set_val(const rnode_object &r, uint32_t val);
+    int rmux_get_slot(const rnode_object &r) const;
+    rnode_index rmux_get_source(const rnode_object &r) const;
+    inline rnode_index rmux_get_source(const rnode_object *r) const {
       return rmux_get_source(*r);
     }
-    bool rmux_is_default(rnode_t node) const;
-    bool rnode_do_link(rnode_t n1, rnode_t n2);
+    bool rmux_is_default(rnode_index node) const;
+    bool rnode_do_link(rnode_index n1, rnode_index n2);
     void route_set_defaults();
 
-    void init_p2r_maps();
-
-    inline uint32_t pos2bit(pos_t pos) const {
-      uint16_t x = di.x_to_bx[pos2x(pos)];
-      uint16_t y = 2 + 86 * pos2y(pos);
+    inline uint32_t pos2bit(xycoords pos) const {
+      uint16_t x = di.x_to_bx[pos.x()];
+      uint16_t y = 2 + 86 * pos.y();
       return y * di.cram_sx + x;
     }
 
-    uint32_t fpll2pram(pos_t p) const;
-    uint32_t cmuxc2pram(pos_t p) const;
-    uint32_t cmuxv2pram(pos_t p) const;
-    uint32_t cmuxh2pram(pos_t p) const;
-    uint32_t dll2pram(pos_t p) const;
-    uint32_t hssi2pram(pos_t p) const;
-    uint32_t cbuf2pram(pos_t p) const;
-    uint32_t lvl2pram(pos_t p) const;
-    uint32_t pma32pram(pos_t p) const;
-    uint32_t serpar2pram(pos_t p) const;
-    uint32_t term2pram(pos_t p) const;
-    uint32_t hip2pram(pos_t p) const;
-    uint32_t hmc2pram(pos_t p) const;
+    uint32_t fpll2pram(xycoords p) const;
+    uint32_t cmuxc2pram(xycoords p) const;
+    uint32_t cmuxv2pram(xycoords p) const;
+    uint32_t cmuxh2pram(xycoords p) const;
+    uint32_t dll2pram(xycoords p) const;
+    uint32_t hssi2pram(xycoords p) const;
+    uint32_t cbuf2pram(xycoords p) const;
+    uint32_t lvl2pram(xycoords p) const;
+    uint32_t pma32pram(xycoords p) const;
+    uint32_t serpar2pram(xycoords p) const;
+    uint32_t term2pram(xycoords p) const;
+    uint32_t hip2pram(xycoords p) const;
+    uint32_t hmc2pram(xycoords p) const;
 
     static void bmux_dqs16_adjust(uint32_t &pos, uint32_t offset, bool up);
 
-    void bmux_b_solve_default(block_type_t btype, pos_t pos, int idx, const bmux *mux, uint32_t base, int &def) const;
-    void bmux_m_solve_default(block_type_t btype, pos_t pos, int idx, const bmux *mux, uint32_t base, int &def) const;
-    void bmux_r_solve_default(block_type_t btype, pos_t pos, int idx, const bmux *mux, uint32_t base, int &def) const;
+    void bmux_b_solve_default(block_type_t btype, xycoords pos, int idx, const bmux *mux, uint32_t base, int &def) const;
+    void bmux_m_solve_default(block_type_t btype, xycoords pos, int idx, const bmux *mux, uint32_t base, int &def) const;
+    void bmux_r_solve_default(block_type_t btype, xycoords pos, int idx, const bmux *mux, uint32_t base, int &def) const;
     uint64_t bmux_val_read(uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
-    std::pair<bmux_type_t, bool> bmux_m_read(block_type_t btype, pos_t pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
-    std::pair<int, bool> bmux_n_read(block_type_t btype, pos_t pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
-    std::pair<bool, bool> bmux_b_read(block_type_t btype, pos_t pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
-    bool bmux_r_read(block_type_t btype, pos_t pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode, std::vector<uint8_t> &r) const;
-    void bmux_get_any(block_type_t btype, pos_t pos, uint32_t base, const bmux *muxes, bmux_ram_t mode, std::vector<bmux_setting_t> &res, int variant = 0) const;
+    std::pair<bmux_type_t, bool> bmux_m_read(block_type_t btype, xycoords pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
+    std::pair<int, bool> bmux_n_read(block_type_t btype, xycoords pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
+    std::pair<bool, bool> bmux_b_read(block_type_t btype, xycoords pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode) const;
+    bool bmux_r_read(block_type_t btype, xycoords pos, uint32_t base, const bmux *mux, int idx, bmux_ram_t mode, std::vector<uint8_t> &r) const;
+    void bmux_get_any(block_type_t btype, xycoords pos, uint32_t base, const bmux *muxes, bmux_ram_t mode, std::vector<bmux_setting_t> &res, int variant = 0) const;
 
     void bmux_val_set(uint32_t base, const bmux *mux, int idx, bmux_ram_t mode, uint64_t val);
     void bmux_val_set(uint32_t base, const bmux *mux, int idx, bmux_ram_t mode, const std::vector<uint8_t> &val);
-    void bmux_set_default(block_type_t btype, pos_t pos, uint32_t base, const bmux *muxes, bmux_ram_t mode, int variant = 0);
+    void bmux_set_default(block_type_t btype, xycoords pos, uint32_t base, const bmux *muxes, bmux_ram_t mode, int variant = 0);
     void bmux_set_defaults();
-    void bmux_find(block_type_t btype, pos_t pos, bmux_type_t mux, uint32_t &base, const bmux *&pmux, bmux_ram_t &mode) const;
+    void bmux_find(block_type_t btype, xycoords pos, bmux_type_t mux, uint32_t &base, const bmux *&pmux, bmux_ram_t &mode) const;
     const bmux *bmux_find(const bmux *pmux, bmux_type_t mux, int variant = 0) const;
 
     int inv_get_default(const inverter_info &inf) const;
@@ -1326,7 +1274,8 @@ namespace mistral {
     static void table_pos_to_index(double v, size_t &p, double &pf, double &pf1);
     std::unique_ptr<t2_lookup> dn_t2(int driver_id, const char *slot, uint16_t index) const;
     std::unique_ptr<t3_lookup> dn_t3(int driver_id, const char *slot, uint16_t index) const;
-    void rnode_timing_generate_line(const rnode_target *targets,
+    void rnode_timing_generate_line(const rnode_index *targets,
+				    const float *targets_caps,
 				    const uint16_t *target_pos,
 				    int split_edge, int target_count,
 				    uint16_t split_pos,
@@ -1336,14 +1285,14 @@ namespace mistral {
 				    double line_r, edge_t edge,
 				    double dev,
 				    const rnode_line_information &rli,
-				    rnode_t rn,
+				    rnode_index rn,
 				    const dnode_driver *driver_bank,
-				    AnalogSim &sim, std::vector<std::pair<rnode_t, int>> &outputs) const;
-    void rnode_timing_build_circuit(int didx, rnode_t rn, timing_slot_t temp, edge_t edge, AnalogSim &sim, int &input, std::vector<std::pair<rnode_t, int>> &outputs) const;
-    void rnode_timing_build_input_wave(int didx, rnode_t rn, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
+				    AnalogSim &sim, std::vector<std::pair<rnode_index, int>> &outputs) const;
+    void rnode_timing_build_circuit(int didx, rnode_index rn, timing_slot_t temp, edge_t edge, AnalogSim &sim, int &input, std::vector<std::pair<rnode_index, int>> &outputs) const;
+    void rnode_timing_build_input_wave(int didx, rnode_index rn, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
     void rnode_timing_trim_wave(int didx, const AnalogSim::wave &sw, AnalogSim::wave &dw) const;
 
-    bool rnode_active(const rnode_base *rn, rnode_t previous) const;
+    bool rnode_active(const rnode_object *rn, rnode_index previous) const;
 
     std::unordered_map<const char *, rnode_type_t, sh, eq> rnode_type_hash;
     std::unordered_map<const char *, block_type_t, sh, eq> block_type_hash;
@@ -1351,5 +1300,17 @@ namespace mistral {
     std::unordered_map<const char *, bmux_type_t, sh, eq>  bmux_type_hash;
   };
 }
+
+// Additional std::hash specializations for wrapped integers
+template<> struct std::hash<mistral::CycloneV::xycoords> {
+  std::size_t operator()(const mistral::CycloneV::xycoords &v) const noexcept { return std::hash<uint16_t>()(v.v); }
+};
+template<> struct std::hash<mistral::CycloneV::rnode_coords> {
+  std::size_t operator()(const mistral::CycloneV::rnode_coords &v) const noexcept { return std::hash<uint32_t>()(v.v); }
+};
+template<> struct std::hash<mistral::CycloneV::pnode_coords> {
+  std::size_t operator()(const mistral::CycloneV::pnode_coords &v) const noexcept { return std::hash<uint64_t>()(v.v); }
+};
+
 
 #endif

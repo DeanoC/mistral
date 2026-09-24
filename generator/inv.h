@@ -18,7 +18,7 @@ struct inverter_info {
     DEF_MASK = 0xf0000000,
   };
 
-  rnode_t node;
+  rnode_coords node;
   uint32_t pos_and_def;
 };
 
@@ -28,10 +28,12 @@ public:
 
   InvLoader(const NodesReader &nr, const std::vector<uint8_t> &data, uint32_t width, const P2RLoader &p2r, const P2PLoader &p2p);
 
+  void convert_coords_to_index(const std::vector<uint8_t> &hdata);
+
 private:
   const NodesReader &nr;
 
-  void add(const P2RLoader &p2r, const P2PLoader &p2p, rnode_t node, uint32_t pos);
+  void add(const P2RLoader &p2r, const P2PLoader &p2p, rnode_coords node, uint32_t pos);
   void error(const uint8_t *st, const char *err) const;
 };
 

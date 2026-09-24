@@ -4,6 +4,7 @@
 #include "nodes.h"
 
 #include <vector>
+#include <array>
 #include <stdint.h>
 
 struct rnode_line_information {
@@ -20,15 +21,14 @@ struct rnode_line_information {
 
 class LinesParser {
 public:
-  rnode_t rn;
+  rnode_coords rn;
   rnode_line_information li;
   uint16_t driver_position;
-  uint16_t target_count;
-  uint16_t target_pos[64];
-  union {
-    rnode_t rn;
-    float caps;
-  } targets[64];
+  uint16_t targets_count;
+  uint16_t targets_caps_count;
+  std::array<uint16_t, 64> targets_pos;
+  std::array<rnode_coords, 64> targets;
+  std::array<float, 64> targets_caps;
 
   LinesParser(const NodesReader &nr, const std::vector<uint8_t> &data);
 

@@ -1,4 +1,5 @@
 #include "cyclonev.h"
+#include "bdz-ph.h"
 #include <lzma.h>
 
 const mistral::CycloneV::package_info_t mistral::CycloneV::package_infos[5+3+3] = {
@@ -276,8 +277,7 @@ mistral::CycloneV::CycloneV(const Model *m) : model(m), di(m->variant.die)
   add_cram_blocks();
   add_pram_blocks();
   ctrl_pos.push_back(di.ctrl);
-  tile_bels[di.ctrl].push_back(CTRL);
-  init_p2r_maps();
+  tile_bels[di.ctrl.v].push_back(CTRL);
 
   cram.resize((di.cram_sx*di.cram_sy + 7) / 8, 0);
   for(int i=0; i != 32; i++)
@@ -300,8 +300,8 @@ void mistral::CycloneV::clear()
 
 void mistral::CycloneV::forced_1_set()
 {
-  for(uint32_t i=0; i != di.forced_1_count; i++) {
-    uint32_t pos = di.forced_1_pos[i].y * di.cram_sx + di.forced_1_pos[i].x;
+  for(uint32_t i=0; i != dhead->count_1; i++) {
+    uint32_t pos = one_infos[i];
     cram[pos >> 3] |= 1 << (pos & 7);
   }
 }
@@ -319,7 +319,7 @@ void mistral::CycloneV::add_cram_blocks()
 
     for(uint8_t x = xs; x <= xe; x++) {
       const uint8_t *spans = spans_start;
-      std::vector<uint16_t> *posvec;
+      std::vector<xycoords> *posvec = nullptr;
       bool is_dsp = false;
       tile_type_t tp = di.column_types[x];
       switch(tp) {
@@ -345,26 +345,26 @@ void mistral::CycloneV::add_cram_blocks()
 	uint8_t ys = *spans++;
 	uint8_t ye = *spans++;
 	for(uint8_t y = ys; y <= ye; y++) {
-	  pos_t pos = xy2pos(x, y);
+	  xycoords pos(x, y);
 	  if(!is_dsp || !((y - ys) & 1)) {
-	    tile_types[pos] = tp;
-	    tile_bels[pos].push_back(tp == T_LAB ? LAB : tp == T_MLAB ? MLAB : tp == T_M10K ? M10K : DSP);
+	    tile_types[pos.v] = tp;
+	    tile_bels[pos.v].push_back(tp == T_LAB ? LAB : tp == T_MLAB ? MLAB : tp == T_M10K ? M10K : DSP);
 	    posvec->push_back(pos);
-	    // The final DSP base can be the last row in a BEL span. Its
-	    // upper routing tile still exists even when it is outside the span.
+	    // A DSP BEL can end on the last row of a span; the upper
+	    // routing tile still exists one row above the base.
 	    if(is_dsp)
-	      tile_types[pos+1] = T_DSP2;
+	      tile_types[xycoords(x, y+1).v] = T_DSP2;
 	  } else
-	    tile_types[pos] = T_DSP2;
+	    tile_types[pos.v] = T_DSP2;
 	}	
       }
     }
   }
 
-  if(di.hps_blocks) {
+  if(hps_infos) {
     for(int i=0; i != I_HPS_COUNT; i++) {
-      tile_bels[di.hps_blocks[i]].push_back(hps_index_to_type[i]);
-      hps_pos.push_back(di.hps_blocks[i]);
+      tile_bels[hps_infos[i].v].push_back(hps_index_to_type[i]);
+      hps_pos.push_back(hps_infos[i]);
     }
   }
 }
@@ -437,13 +437,15 @@ std::tuple<const uint8_t *, size_t> mistral::CycloneV::get_bin(const uint8_t *st
     strm.next_out = decompressed_data_storage.back().get();
     strm.avail_out = size;
   
-    if((ret = lzma_code(&strm, LZMA_RUN)) != LZMA_STREAM_END) {
+    if((ret = lzma_code(&strm, LZMA_FINISH)) != LZMA_STREAM_END) {
       fprintf(stderr, "rmux data decompression failure: %d\n", ret);
       exit(1);
     }
 
     data = decompressed_data_storage.back().get();
     dsize = size;
+
+    lzma_end(&strm);
   }
 
   return std::make_tuple(data, dsize);
@@ -451,61 +453,75 @@ std::tuple<const uint8_t *, size_t> mistral::CycloneV::get_bin(const uint8_t *st
 
 void mistral::CycloneV::validate_fw_bw() const
 {
-  for(const rnode_base *rnb = reinterpret_cast<const rnode_base *>(rnode_info); rnb != reinterpret_cast<const rnode_base *>(rnode_info_end); rnb = rnode_next(rnb)) {
-    rnode_t rn = rnb->node;
+  for(const rnode_object *ro = ro_begin; ro != ro_end; ro = ro->next()) {
+    rnode_coords rn = ro->rc();
 
-    if(rnb->pattern == 0xff && rnb->target_count == 0) {
-      printf("%s: unconnected node.\n", rn2s(rn).c_str());
+    rnode_index ri = rc2ri(rn);
+    if(ri != ro->ri())
+      printf("%s: index mismatch %d vs. %d\n", rn.to_string().c_str(), ri, ro->ri());
+
+    const rnode_object *ro1 = ri2ro(ri);
+    if(ro1 != ro)
+      printf("%s: index -> offset table error\n", rn.to_string().c_str());
+      
+
+    if(ro->sources_count() == 0 && ro->targets_count() == 0 && ro->targets_caps_count() == 0) {
+      printf("%s: unconnected node.\n", rn.to_string().c_str());
       continue;
     }
 
-    if(rnb->drivers[0] == 0xff && rn2t(rn) != GCLK && rn2t(rn) != RCLK && rn2t(rn) != GCLKFB && rn2t(rn) != RCLKFB) {
-      printf("%s: missing driver information.\n", rn2s(rn).c_str());
+    if(ro->driver(0) == 0xff && rn.t() != GCLK && rn.t() != RCLK && rn.t() != GCLKFB && rn.t() != RCLKFB) {
+      printf("%s: missing driver information.\n", rn.to_string().c_str());
     }
 
     {    
       // fw -> bw
-      const rnode_target *rt = rnode_targets(rnb);
-      const uint16_t *rtp = rnode_target_positions(rnb);
-      for(int i=0; i != rnb->target_count; i++)
-	if(!(rtp[i] & 0x8000)) {
-	  rnode_t rnt = rt[i].rn;
-	  const rnode_base *rntb = rnode_lookup(rnt);
-	  if(!rntb) {
-	    printf("%s: %s - forward node missing.\n", rn2s(rn).c_str(), rn2s(rnt).c_str());
-	    continue;
-	  }
-	  const rnode_t *rs = rnode_sources(rntb);
-	  int span = rntb->pattern == 0xff ? 0 : rntb->pattern == 0xfe ? 1 : rmux_patterns[rntb->pattern].span;
-	  bool ok = false;
-	  for(int j=0; !ok && j != span; j++)
-	    ok = rs[j] == rn;
-	  if(!ok)
-	    printf("%s: %s - forward not found in backward.\n", rn2s(rn).c_str(), rn2s(rnt).c_str());
-	}
+      const rnode_index *rt = ro->targets_begin();
+      for(uint32_t i=0; i != ro->targets_count(); i++) {
+	rnode_index rnt = rt[i];
+	const rnode_object *rnto = ri2ro(rnt);
+	const rnode_index *rs = rnto->sources_begin();
+	int span = rnto->sources_count();
+	bool ok = false;
+	for(int j=0; !ok && j != span; j++)
+	  ok = rs[j] == ri;
+	if(!ok)
+	  printf("%s: %s - forward not found in backward.\n", rn.to_string().c_str(), rnto->rc().to_string().c_str());
+      }
     }
 
     {
       // bw -> fw
-      const rnode_t *rs = rnode_sources(rnb);
-      int span = rnb->pattern == 0xff ? 0 : rnb->pattern == 0xfe ? 1 : rmux_patterns[rnb->pattern].span;
-      for(int i=0; i != span; i++) {
-	rnode_t rns = rs[i];
-	if(!rns)
-	  continue;
-	const rnode_base *rnsb = rnode_lookup(rns);
-	if(!rnsb) {
-	  printf("%s: %s - backward node missing.\n", rn2s(rn).c_str(), rn2s(rns).c_str());
-	  continue;
-	}
-	const rnode_target *rst = rnode_targets(rnsb);
-	const uint16_t *rstp = rnode_target_positions(rnsb);
+      const rnode_index *rs = ro->sources_begin();
+      for(uint32_t i=0; i != ro->sources_count(); i++) {
+	rnode_index rns = rs[i];
+	const rnode_object *rnso = ri2ro(rns);
+	const rnode_index *rst = rnso->targets_begin();
 	bool ok = false;
-	for(int j=0; !ok && j != rnsb->target_count; j++)
-	  ok = !(rstp[j] & 0x8000) && rst[j].rn == rn;
+	for(uint32_t j=0; !ok && j != rnso->targets_count(); j++)
+	  ok = rst[j] == ri;
 	if(!ok)
-	    printf("%s: %s - backward not found in forward.\n", rn2s(rn).c_str(), rn2s(rns).c_str());
+	  printf("%s: %s - backward not found in forward.\n", rn.to_string().c_str(), rnso->rc().to_string().c_str());
       }
     }
   }
+}
+
+mistral::CycloneV::rnode_index mistral::CycloneV::rc2ri(rnode_coords rc) const
+{
+  return bdz_ph_hash::lookup(roh_info, rc.v);
+}
+
+const mistral::CycloneV::rnode_object *mistral::CycloneV::ri2ro(rnode_index ri) const
+{
+  uint32_t roo = ri_info[ri];
+  if(roo == 0xffffffff)
+    return nullptr;
+  return reinterpret_cast<const rnode_object *>(reinterpret_cast<const uint8_t *>(ro_begin) + roo);
+}
+
+const mistral::CycloneV::rnode_object *mistral::CycloneV::rc2ro(rnode_coords rc) const
+{
+  const rnode_object *ro = ri2ro(rc2ri(rc));
+  return ro->rc() == rc ? ro : nullptr;
 }

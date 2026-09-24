@@ -1,5 +1,6 @@
 #include "inv.h"
 #include "io.h"
+#include "bdz-ph.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +14,7 @@ InvLoader::InvLoader(const NodesReader &_nr, const std::vector<uint8_t> &_data, 
 
   while(p != e) {
     const uint8_t *st = p;
-    rnode_t node = nr.lookup_r(p);
+    rnode_coords node = nr.lookup_r(p);
     if(!node)
       error(st, "Incorrect inverter rnode");
     skipsp(p);
@@ -57,13 +58,13 @@ void InvLoader::error(const uint8_t *st, const char *err) const
   exit(1);
 }
 
-void InvLoader::add(const P2RLoader &p2r, const P2PLoader &p2p, rnode_t node, uint32_t pos)
+void InvLoader::add(const P2RLoader &p2r, const P2PLoader &p2p, rnode_coords node, uint32_t pos)
 {
   if(!(pos & inverter_info::DEF_MASK)) {
-    pnode_t pn = p2r.find_r(node);
-    auto pt = pn2pt(pn);
+    pnode_coords pn = p2r.find_r(node);
+    auto pt = pn.pt();
     if(pn) {
-      switch(pn2bt(pn)) {
+      switch(pn.bt()) {
       case CTRL: pos |= inverter_info::DEF_0; break;
       case CMUXCR: pos |= inverter_info::DEF_0; break;
       case CMUXHG: pos |= inverter_info::DEF_0; break;
@@ -104,7 +105,7 @@ void InvLoader::add(const P2RLoader &p2r, const P2PLoader &p2p, rnode_t node, ui
       case FPLL: pos |= (pt == CLKEN || pt == EXTSWITCH0 ? inverter_info::DEF_1 : inverter_info::DEF_0); break;
       case HPS_CROSS_TRIGGER: pos |= pt == CLK_EN ? inverter_info::DEF_1 : inverter_info::DEF_0; break;
       case HPS_TEST: pos |= pos |= pt == CFG_DFX_BYPASS_ENABLE ? inverter_info::DEF_1 : inverter_info::DEF_0; break;
-      case HSSI: pos |= ((pt == PMA_PMA_RESERVED_IN && pn2pi(pn) == 0) || pt == SMRT_PACK_PLD_8G_TXELECIDLE) ? inverter_info::DEF_1 : inverter_info::DEF_0; break;
+      case HSSI: pos |= ((pt == PMA_PMA_RESERVED_IN && pn.pi() == 0) || pt == SMRT_PACK_PLD_8G_TXELECIDLE) ? inverter_info::DEF_1 : inverter_info::DEF_0; break;
 
       case GPIO:
 	pos |= inverter_info::DEF_GP;
@@ -118,12 +119,18 @@ void InvLoader::add(const P2RLoader &p2r, const P2PLoader &p2p, rnode_t node, ui
       }
 
     } else {
-      if(rn2t(node) == DCMUX)
+      if(node.t() == DCMUX)
 	pos |= inverter_info::DEF_0;
-      else if(rn2t(node) == GOUT)
+      else if(node.t() == GOUT)
 	pos |= inverter_info::DEF_0;
     }
   }
 
   data.emplace_back(inverter_info{node, pos});
+}
+
+void InvLoader::convert_coords_to_index(const std::vector<uint8_t> &hdata)
+{
+  for(auto &n : data)
+    n.node.v = bdz_ph_hash::lookup(hdata, n.node.v);
 }

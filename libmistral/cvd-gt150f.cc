@@ -28,10 +28,7 @@ const mistral::CycloneV::die_info mistral::CycloneV::gt150f = {
   7605, 7024,              // cram size
   90, 82,                  // tiles size
   90, 82,                  // hps (arm) processor core position
-  543,                     // IO blocks count
-  30,                      // dqs16 count
-  0,                       // count of forced-1 bits
-  xy2pos(0, 2),            // control block position
+  xycoords(0, 2),          // control block position
 
   // default options
   { 0x28c0e180d0, 0x24141e3c32, 0xa001858f7f, 0x9bffffffff, 0xfffffffe81, 0xac817d803f, 0xf000181602, 0xffffffff6a, 0x00000030c2, 0x3b030ecc0a, 0x0c50b98814, 0xcf82a014ce },
@@ -82,10 +79,4 @@ const mistral::CycloneV::die_info mistral::CycloneV::gt150f = {
 
   _binary_gt150f_r_bin_start, _binary_gt150f_r_bin_end,
   gt150f_bel_spans_info,
-  gt150f_ioblocks_info,
-  gt150f_dqs16_info,
-  gt150f_fixed_blocks_info,
-  gt150f_dcram_pos,
-  nullptr,
-  nullptr,
 };

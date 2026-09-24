@@ -29,67 +29,67 @@ NodesReader::NodesReader() : rnames(rnode_type_names), bnames(block_type_names),
 {
 }
 
-rnode_t NodesReader::lookup_r(const uint8_t *&p) const
+rnode_coords NodesReader::lookup_r(const uint8_t *&p) const
 {
   int t = rnames.lookup(p);
   if(t == -1) {
     fprintf(stderr, "Rnode type unknown\n");
-    return 0;
+    return rnode_coords();
   }
   if(*p++ != '.') {
     fprintf(stderr, "Missing '.' after rnode type\n");
-    return 0;
+    return rnode_coords();
   }
   int x = lookup_int(p);
   if(x == -1) {
     fprintf(stderr, "Missing x\n");
-    return 0;
+    return rnode_coords();
   }
   if(*p++ != '.') {
     fprintf(stderr, "Missing '.' after rnode x\n");
-    return 0;
+    return rnode_coords();
   }
   int y = lookup_int(p);
   if(y == -1) {
     fprintf(stderr, "Missing y\n");
-    return 0;
+    return rnode_coords();
   }
   if(*p++ != '.') {
     fprintf(stderr, "Missing '.' after rnode y\n");
-    return 0;
+    return rnode_coords();
   }
   int z = lookup_int(p);
   if(z == -1) {
     fprintf(stderr, "Missing z\n");
-    return 0;
+    return rnode_coords();
   }
-  return rnode(t, x, y, z);
+  return rnode_coords(rnode_type_t(t), x, y, z);
 }
 
-pnode_t NodesReader::lookup_p(const uint8_t *&p) const
+pnode_coords NodesReader::lookup_p(const uint8_t *&p) const
 {
   int b = bnames.lookup(p);
   if(b == -1) {
     fprintf(stderr, "Block type unknown\n");
-    return 0;
+    return pnode_coords();
   }
   if(*p++ != '.') {
     fprintf(stderr, "Missing '.' after rnode type\n");
-    return 0;
+    return pnode_coords();
   }
   int x = lookup_int(p);
   if(x == -1) {
     fprintf(stderr, "Missing x\n");
-    return 0;
+    return pnode_coords();
   }
   if(*p++ != '.') {
     fprintf(stderr, "Missing '.' after rnode x\n");
-    return 0;
+    return pnode_coords();
   }
   int y = lookup_int(p);
   if(y == -1) {
     fprintf(stderr, "Missing y\n");
-    return 0;
+    return pnode_coords();
   }
   int bi = -1;
   if(*p == '.') {
@@ -97,7 +97,7 @@ pnode_t NodesReader::lookup_p(const uint8_t *&p) const
     bi = lookup_int(p);
     if(bi == -1) {
       fprintf(stderr, "Missing instance number\n");
-      return 0;
+      return pnode_coords();
     }
   }
 
@@ -108,19 +108,19 @@ pnode_t NodesReader::lookup_p(const uint8_t *&p) const
     t = pnames.lookup(p);
     if(t == -1) {
       fprintf(stderr, "Port type unknown\n");
-      return 0;
+      return pnode_coords();
     }
     if(*p == '.') {
       p++;
       pi = lookup_int(p);
       if(pi == -1) {
 	fprintf(stderr, "Missing port index number\n");
-	return 0;
+	return pnode_coords();
       }
     }
   }
 
-  return pnode(b, x, y, t, bi, pi);
+  return pnode_coords(block_type_t(b), x, y, port_type_t(t), bi, pi);
 }
 
 block_type_t NodesReader::lookup_block(const uint8_t *&p) const
