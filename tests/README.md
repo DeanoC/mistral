@@ -52,3 +52,19 @@ quartus_sh --flow compile top
 ```
 
 The fixtures use MLAB X8/Y32 or LAB X7/Y32 on `5CSEBA6U23I7`.
+
+## Routing mux CRAM coordinates
+
+`routing-mux-cram` checks the physical configuration footprint of seven
+routing muxes isolated from an outside-slot ZX81 composition difference,
+plus an inside-slot mux. Logical wire tile coordinates do not necessarily
+identify the tile containing its programmable bits. The test checks exact
+coordinates, half-open boundaries, output replacement, unknown nodes and a
+fixed connection with no programmable mux.
+
+```sh
+build/tests/routing-mux-cram
+```
+
+This is an offline table/accessor regression. It does not establish physical
+hardware acceptance or replace the final bitstream boundary comparison.

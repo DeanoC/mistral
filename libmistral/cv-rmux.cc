@@ -83,6 +83,24 @@ uint32_t mistral::CycloneV::rmux_get_val(const rnode_object &r) const
   return val;
 }
 
+bool mistral::CycloneV::rnode_mux_cram_bits(rnode_coords rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const
+{
+  bits.clear();
+  const rnode_object *r = rc2ro(rn);
+  if(!r)
+    return false;
+  if(r->pattern() == 0xfe || r->pattern() == 0xff)
+    return true;
+  const rmux_pattern &pat = rmux_patterns[r->pattern()];
+  const uint8_t *xy = rmux_xy + pat.o_xy*2;
+  bits.reserve(pat.bits);
+  for(uint8_t bit = 0; bit != pat.bits; ++bit, xy += 2) {
+    uint32_t pos = r->fw_pos() + xy[0] + xy[1]*di.cram_sx;
+    bits.emplace_back(pos % di.cram_sx, pos / di.cram_sx);
+  }
+  return true;
+}
+
 void mistral::CycloneV::rmux_set_val(const rnode_object &r, uint32_t val)
 {
   const rmux_pattern &pat = rmux_patterns[r.pattern()];
@@ -1546,3 +1564,4 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
     outputs.emplace_back(std::make_pair(0xffffffff, wire));
   }
 }
+
