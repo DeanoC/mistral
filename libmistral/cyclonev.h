@@ -4,6 +4,7 @@
 // LAB/MLAB CLKx_INV and CLKx_SEL refer to the Quartus-verified bit positions.
 #define MISTRAL_CORRECT_LAB_CLOCK_MUXES 1
 #define MISTRAL_ROUTING_MUX_CRAM_BITS 1
+#define MISTRAL_ROUTING_INVERTER_CRAM_BIT 1
 
 #include <stdint.h>
 #include <string.h>
@@ -589,10 +590,29 @@ namespace mistral {
     pnode_coords rnode_to_pnode(rnode_index rn) const;
     invert_t rnode_is_inverting(rnode_index rn) const;
 
-    // Physical CRAM coordinates written when selecting this destination mux.
-    // Unknown nodes return false; fixed connections and nodes without a mux
-    // return true with an empty result. Does not inspect or mutate CRAM state.
+    // Physical CRAM coordinates of destination routing configuration.
+    //
+    // Coordinates are mistral's decoded CRAM (x, y) on a cram_sx by cram_sy
+    // grid, the same space CycloneV::diff reports. They are not RBF
+    // frame/byte/bit offsets.
+    //
+    // rnode_mux_cram_bits lists the programmable routing-mux selector bits.
+    // rnode_inverter_cram_bit lists the programmable routing inverter, if
+    // any. Its address is the linear bit index inv_set / inv_default_set
+    // write: pos = pos_and_def & ~DEF_MASK, then (pos % cram_sx, pos / cram_sx).
+    // rnode_cram_footprint is the union of those two, mux bits first.
+    //
+    // The footprint is routing mux selectors and their inverters only. A full
+    // frozen-shell check also needs block mux/BEL configuration, including
+    // dcram-indexed bits, for blocks in or near the slot.
+    //
+    // Unknown nodes return false and clear the output. Known nodes return
+    // true; an empty vector means that node has no bits of that kind (fixed
+    // connection, no mux, or no programmable inverter). None of these queries
+    // inspects or mutates CRAM, routing, or bitstream state.
     bool rnode_mux_cram_bits(rnode_coords rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const;
+    bool rnode_inverter_cram_bit(rnode_coords rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const;
+    bool rnode_cram_footprint(rnode_coords rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const;
 
     std::vector<pnode_coords> p2p_from(pnode_coords pn) const;
     pnode_coords p2p_to(pnode_coords pn) const;

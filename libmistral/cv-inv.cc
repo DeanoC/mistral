@@ -75,6 +75,27 @@ void mistral::CycloneV::inv_default_set()
   }
 }
 
+bool mistral::CycloneV::rnode_inverter_cram_bit(rnode_coords rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const
+{
+  bits.clear();
+  const rnode_object *r = rc2ro(rn);
+  if(!r)
+    return false;
+
+  // First match, same walk as inv_set. Linear index matches that writer:
+  // pos = pos_and_def & ~DEF_MASK, then (x, y) = (pos % cram_sx, pos / cram_sx).
+  rnode_index node = r->ri();
+  for(uint32_t i = 0; i != dhead->count_inv; i++) {
+    const auto &inf = inverter_infos[i];
+    if(inf.node == node) {
+      uint32_t pos = inf.pos_and_def & ~inverter_info::DEF_MASK;
+      bits.emplace_back(pos % di.cram_sx, pos / di.cram_sx);
+      return true;
+    }
+  }
+  return true;
+}
+
 bool mistral::CycloneV::inv_set(rnode_index node, bool value)
 {
   for(uint32_t i = 0; i != dhead->count_inv; i++) {
