@@ -1,6 +1,7 @@
 #include "cyclonev.h"
 #include "bdz-ph.h"
 
+#include <algorithm>
 #include <set>
 #include <math.h>
 
@@ -94,10 +95,31 @@ bool mistral::CycloneV::rnode_mux_cram_bits(rnode_coords rn, std::vector<std::pa
   const rmux_pattern &pat = rmux_patterns[r->pattern()];
   const uint8_t *xy = rmux_xy + pat.o_xy*2;
   bits.reserve(pat.bits);
+  // rmux_pattern::bits is a uint8_t (at most 255; the tables use at most 18).
+  // The counter is the same width, and `bit != pat.bits` fails when the
+  // counter reaches pat.bits, so the increment cannot wrap to 0. A wider
+  // stored count would need a wider counter.
+  static_assert(sizeof(static_cast<const rmux_pattern *>(nullptr)->bits) == sizeof(uint8_t),
+                "pattern bit count must fit the uint8_t loop counter");
   for(uint8_t bit = 0; bit != pat.bits; ++bit, xy += 2) {
     uint32_t pos = r->fw_pos() + xy[0] + xy[1]*di.cram_sx;
     bits.emplace_back(pos % di.cram_sx, pos / di.cram_sx);
   }
+  return true;
+}
+
+bool mistral::CycloneV::rnode_cram_footprint(rnode_coords rn, std::vector<std::pair<uint32_t, uint32_t>> &bits) const
+{
+  if(!rnode_mux_cram_bits(rn, bits))
+    return false;
+  std::vector<std::pair<uint32_t, uint32_t>> inverter;
+  if(!rnode_inverter_cram_bit(rn, inverter)) {
+    bits.clear();
+    return false;
+  }
+  for(const auto &bit : inverter)
+    if(std::find(bits.begin(), bits.end(), bit) == bits.end())
+      bits.push_back(bit);
   return true;
 }
 
