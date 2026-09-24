@@ -523,5 +523,5 @@ const mistral::CycloneV::rnode_object *mistral::CycloneV::ri2ro(rnode_index ri) 
 const mistral::CycloneV::rnode_object *mistral::CycloneV::rc2ro(rnode_coords rc) const
 {
   const rnode_object *ro = ri2ro(rc2ri(rc));
-  return ro->rc() == rc ? ro : nullptr;
+  return ro && ro->rc() == rc ? ro : nullptr;
 }
