@@ -6,6 +6,12 @@ It's the very first version of a library/command line utility to
 compile and decompile Cyclone V bitstreams, as used in the de-10 nano
 (used in MiSTer) and the future Analogue Pocket.
 
+`rnode_cram_footprint` reports routing-mux and routing-inverter CRAM
+coordinates. `bmux_cram_bits` (`MISTRAL_BMUX_CRAM_BITS`) reports LAB and
+MLAB block-mux coordinates in that same decoded CRAM `(x, y)` grid.
+Other block types, dcram, pram, and oram are not covered yet. See
+`tests/README.md`.
+
 
 ## Compile and install
 

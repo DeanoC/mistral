@@ -5,6 +5,7 @@
 #define MISTRAL_CORRECT_LAB_CLOCK_MUXES 1
 #define MISTRAL_ROUTING_MUX_CRAM_BITS 1
 #define MISTRAL_ROUTING_INVERTER_CRAM_BIT 1
+#define MISTRAL_BMUX_CRAM_BITS 1
 
 #include <stdint.h>
 #include <string.h>
@@ -602,9 +603,10 @@ namespace mistral {
     // write: pos = pos_and_def & ~DEF_MASK, then (pos % cram_sx, pos / cram_sx).
     // rnode_cram_footprint is the union of those two, mux bits first.
     //
-    // The footprint is routing mux selectors and their inverters only. A full
-    // frozen-shell check also needs block mux/BEL configuration, including
-    // dcram-indexed bits, for blocks in or near the slot.
+    // The footprint is routing mux selectors and their inverters only.
+    // LAB and MLAB block-mux bits are bmux_cram_bits. A full frozen-shell
+    // check still needs the other block types, dcram-indexed bits, and the
+    // forced-1 list, for blocks in or near the slot.
     //
     // Unknown nodes return false and clear the output. Known nodes return
     // true; an empty vector means that node has no bits of that kind (fixed
@@ -681,6 +683,30 @@ namespace mistral {
 
     int bmux_type(block_type_t btype, xycoords pos, bmux_type_t mux, int midx) const;
     bool bmux_get(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, bmux_setting_t &s) const;
+
+    // Block-mux CRAM coordinates for one LAB or MLAB mux instance.
+    //
+    // Coordinates are mistral's decoded CRAM (x, y) on a cram_sx by cram_sy
+    // grid, the same space CycloneV::diff reports. They are not RBF
+    // frame/byte/bit offsets, and not pram or oram indexes.
+    //
+    // This is the non-dcram BM_CRAM path bmux_*_set uses for LAB and MLAB:
+    // base = pos2bit(pos) = x_to_bx[tile_x] + (2 + 86*tile_y)*cram_sx, then
+    // each bmux_cram_bpos pair (dx, dy) is base + dy*cram_sx + dx, reported
+    // as (linear % cram_sx, linear / cram_sx). midx selects one instance in
+    // the mux span. Span-1 fields (lab-global) take midx 0. Per-ALM fields
+    // take midx 0..span-1. Walk midx from 0 until the call returns false to
+    // cover every instance; a false result at midx 0 means the block,
+    // position, or mux is not resolved.
+    //
+    // M10K, DSP, HPS_CLOCKS, peripherals, dcram, pram, and oram are not
+    // resolved. Those block types return false even when they have config bits.
+    //
+    // Unknown block, position, mux, or midx returns false and clears the
+    // output. A known mux with no bits returns true and leaves bits empty.
+    // The query does not inspect or mutate CRAM, routing, or bitstream state.
+    bool bmux_cram_bits(block_type_t btype, xycoords pos, bmux_type_t mux, int midx,
+                        std::vector<std::pair<uint32_t, uint32_t>> &bits) const;
     bool bmux_set(const bmux_setting_t &s);
     bool bmux_m_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, bmux_type_t s);
     bool bmux_n_set(block_type_t btype, xycoords pos, bmux_type_t mux, int midx, uint32_t s);

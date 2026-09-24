@@ -1130,3 +1130,31 @@ bool mistral::CycloneV::bmux_get(block_type_t btype, xycoords pos, bmux_type_t m
 
   return true;
 }
+
+bool mistral::CycloneV::bmux_cram_bits(block_type_t btype, xycoords pos, bmux_type_t mux, int midx,
+				       std::vector<std::pair<uint32_t, uint32_t>> &bits) const
+{
+  bits.clear();
+  if(btype != LAB && btype != MLAB)
+    return false;
+  if(btype == LAB && tile_types[pos.v] != T_LAB)
+    return false;
+  if(btype == MLAB && tile_types[pos.v] != T_MLAB)
+    return false;
+
+  const bmux *pmux = bmux_find(btype == LAB ? bm_lab : bm_mlab, mux);
+  if(!pmux || midx < 0 || midx >= pmux->span)
+    return false;
+
+  // Same address as bmux_val_set's BM_CRAM loop. bits is a uint8_t, so the
+  // counter stops at pmux->bits before it can wrap.
+  const uint16_t *bt = bmux_cram_bpos + 2*(pmux->bit_offset + midx * pmux->bits);
+  uint32_t base = pos2bit(pos);
+  bits.reserve(pmux->bits);
+  for(uint8_t b = 0; b != pmux->bits; b++) {
+    uint32_t linear = base + bt[1] * di.cram_sx + bt[0];
+    bits.emplace_back(linear % di.cram_sx, linear / di.cram_sx);
+    bt += 2;
+  }
+  return true;
+}
