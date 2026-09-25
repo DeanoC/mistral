@@ -8,6 +8,7 @@
 #define MISTRAL_BMUX_CRAM_BITS 1
 
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <vector>
 #include <string>
@@ -601,6 +602,9 @@ namespace mistral {
     // rnode_inverter_cram_bit lists the programmable routing inverter, if
     // any. Its address is the linear bit index inv_set / inv_default_set
     // write: pos = pos_and_def & ~DEF_MASK, then (pos % cram_sx, pos / cram_sx).
+    // Each routing node has at most one inverter entry. routing-inverter-cram
+    // asserts that on every die it runs. The query returns that entry, which
+    // is the entry inv_set writes.
     // rnode_cram_footprint is the union of those two, mux bits first.
     //
     // The footprint is routing mux selectors and their inverters only.
@@ -755,8 +759,9 @@ namespace mistral {
     const pin_info_t *pin_find_pnode(pnode_coords pn) const;
     const pin_info_t *pin_find_name(const std::string &name) const;
 
-    // Debug stuff
-    void diff(const CycloneV *m) const;
+    // Debug stuff. out defaults to stdout; callers can pass another FILE
+    // to capture the report without redirecting the process.
+    void diff(const CycloneV *m, FILE *out = stdout) const;
     void validate_fw_bw() const;
 
   private:
@@ -1189,6 +1194,9 @@ namespace mistral {
     const p2r_info *p2r_infos;
     const p2p_info *p2p_infos;
     const inverter_info *inverter_infos;
+    // Indices into inverter_infos, sorted by node. Ties keep table order,
+    // so the first hit is the entry inv_set writes.
+    std::vector<uint32_t> inverter_order;
     const uint32_t *one_infos;
     const uint32_t *dcram_infos;
     const xycoords *hps_infos;
@@ -1205,6 +1213,8 @@ namespace mistral {
     void rbf_load_oram(const void *data, uint32_t size);
 
     void rmux_load();
+    void build_inverter_index();
+    const inverter_info *inverter_find(rnode_index node) const;
     void add_cram_blocks();
     void add_pram_blocks();
     void add_pram_fixed(std::vector<xycoords> &pos, block_type_t block, int start, int count);

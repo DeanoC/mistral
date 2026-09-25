@@ -32,5 +32,7 @@ add_test(NAME lab-clock-oracle
   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run-lab-clock-oracle.py $<TARGET_FILE:lab-clock-oracle>
 )
 add_test(NAME routing-mux-cram COMMAND routing-mux-cram)
-add_test(NAME routing-inverter-cram COMMAND routing-inverter-cram)
+# Sampled in ctest. Full sweep: routing-inverter-cram [model]
+add_test(NAME routing-inverter-cram COMMAND routing-inverter-cram --sample 20 5CSEBA6U23I7)
+add_test(NAME routing-inverter-cram-gx25f COMMAND routing-inverter-cram --sample 20 5CGXFC3B6F23C6)
 add_test(NAME bmux-cram-bits COMMAND bmux-cram-bits)

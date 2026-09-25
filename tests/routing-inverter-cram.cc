@@ -8,7 +8,6 @@
 #include <cstring>
 #include <memory>
 #include <string>
-#include <unistd.h>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -18,38 +17,48 @@ namespace {
 using CV = mistral::CycloneV;
 using Bits = std::vector<std::pair<uint32_t, uint32_t>>;
 
-std::string capture_diff(CV &changed, const CV &baseline)
+struct Anchor {
+  CV::rnode_type_t type;
+  uint32_t x, y, z;
+  const char *name;
+  uint32_t bit_x, bit_y;
+  uint32_t box_min_x, box_max_x, box_min_y, box_max_y;
+};
+
+struct Expect {
+  const char *model;
+  uint32_t cram_sx, cram_sy;
+  size_t nodes;
+  uint32_t outside;
+  uint32_t max_distance;
+  const Anchor *anchor;
+  bool fixed_gclk;
+};
+
+const Anchor sx120f_gout = {
+  CV::GOUT, 1, 0, 21, "GOUT.001.000.0021",
+  64, 43, 55, 64, 40, 42
+};
+
+const Expect expects[] = {
+  {"5CSEBA6U23I7", 7605, 7024, 11895, 1987, 3, &sx120f_gout, true},
+  {"5CGXFC3B6F23C6", 3856, 3412, 5922, 1430, 3, nullptr, false},
+};
+
+bool capture_diff(CV &changed, const CV &baseline, std::string &out)
 {
-  char path[] = "/tmp/mistral-inv-diff-XXXXXX";
-  int fd = mkstemp(path);
-  if(fd < 0)
-    return std::string();
-  unlink(path);
-
-  fflush(stdout);
-  int saved = dup(STDOUT_FILENO);
-  dup2(fd, STDOUT_FILENO);
-  changed.diff(&baseline);
-  fflush(stdout);
-  dup2(saved, STDOUT_FILENO);
-  close(saved);
-
-  off_t end = lseek(fd, 0, SEEK_END);
-  std::string out;
-  if(end > 0) {
-    lseek(fd, 0, SEEK_SET);
-    out.resize(static_cast<size_t>(end));
-    size_t got = 0;
-    while(got < out.size()) {
-      ssize_t n = ::read(fd, &out[got], out.size() - got);
-      if(n <= 0)
-        break;
-      got += static_cast<size_t>(n);
-    }
-    out.resize(got);
-  }
-  close(fd);
-  return out;
+  out.clear();
+  FILE *fp = std::tmpfile();
+  if(!fp)
+    return false;
+  changed.diff(&baseline, fp);
+  std::fflush(fp);
+  std::rewind(fp);
+  char buf[4096];
+  while(size_t n = std::fread(buf, 1, sizeof buf, fp))
+    out.append(buf, n);
+  std::fclose(fp);
+  return true;
 }
 
 bool parse_cram_diff(const std::string &text, Bits &bits, std::string &other)
@@ -101,22 +110,18 @@ uint32_t outside_distance(const Bits &mux, uint32_t x, uint32_t y, bool &outside
   return std::max(dx, dy);
 }
 
-} // namespace
-
-int main(int argc, char **argv)
+const Expect *find_expect(const char *model)
 {
-  uint32_t stride = 1;
-  if(argc == 3 && std::strcmp(argv[1], "--sample") == 0) {
-    stride = static_cast<uint32_t>(std::strtoul(argv[2], nullptr, 10));
-    if(stride == 0)
-      return 2;
-  } else if(argc != 1) {
-    std::fprintf(stderr, "usage: %s [--sample N]\n", argv[0]);
-    return 2;
-  }
+  for(const Expect &item : expects)
+    if(std::strcmp(item.model, model) == 0)
+      return &item;
+  return nullptr;
+}
 
-  std::unique_ptr<CV> model(CV::get_model("5CSEBA6U23I7"));
-  std::unique_ptr<CV> changed(CV::get_model("5CSEBA6U23I7"));
+int run_model(const Expect &expect, uint32_t stride)
+{
+  std::unique_ptr<CV> model(CV::get_model(expect.model));
+  std::unique_ptr<CV> changed(CV::get_model(expect.model));
   if(!model || !changed)
     return 2;
 
@@ -128,8 +133,14 @@ int main(int argc, char **argv)
     }
   };
 
+  char msg[160];
+  std::snprintf(msg, sizeof msg, "%s CRAM dimensions", expect.model);
+  check(model->get_cram_sx() == expect.cram_sx && model->get_cram_sy() == expect.cram_sy, msg);
+
   const auto settings = model->inv_get();
-  check(settings.size() == 11895, "inverter node count is 11895");
+  std::snprintf(msg, sizeof msg, "%s inverter node count is %zu (got %zu)",
+                expect.model, expect.nodes, settings.size());
+  check(settings.size() == expect.nodes, msg);
 
   std::unordered_set<CV::rnode_index> inverter_nodes;
   inverter_nodes.reserve(settings.size() * 2);
@@ -145,13 +156,15 @@ int main(int argc, char **argv)
   check(!model->rnode_cram_footprint(unknown, scratch), "unknown node rejects footprint");
   check(scratch.empty(), "unknown node clears previous footprint");
 
-  const CV::rnode_coords fixed_node(CV::GCLK, 0, 36, 0);
-  scratch.emplace_back(1, 2);
-  check(model->rnode_inverter_cram_bit(fixed_node, scratch), "fixed node exists");
-  check(scratch.empty(), "fixed node has no inverter");
-  scratch.emplace_back(1, 2);
-  check(model->rnode_cram_footprint(fixed_node, scratch), "fixed node footprint exists");
-  check(scratch.empty(), "fixed node footprint is empty");
+  if(expect.fixed_gclk) {
+    const CV::rnode_coords fixed_node(CV::GCLK, 0, 36, 0);
+    scratch.emplace_back(1, 2);
+    check(model->rnode_inverter_cram_bit(fixed_node, scratch), "fixed node exists");
+    check(scratch.empty(), "fixed node has no inverter");
+    scratch.emplace_back(1, 2);
+    check(model->rnode_cram_footprint(fixed_node, scratch), "fixed node footprint exists");
+    check(scratch.empty(), "fixed node footprint is empty");
+  }
 
   std::vector<CV::rnode_coords> plain;
   for(uint32_t index = 0; index != model->rnode_index_count() && plain.size() < 8; ++index) {
@@ -171,11 +184,11 @@ int main(int argc, char **argv)
     check(footprint == mux, "footprint of a node without an inverter is the mux bits");
   }
 
-  std::string initial = capture_diff(*changed, *model);
+  std::string initial;
+  check(capture_diff(*changed, *model, initial), "capture diff");
   check(initial.empty(), "cleared models start with identical CRAM");
 
-  const CV::rnode_coords gout(CV::GOUT, 1, 0, 21);
-  bool saw_gout = false;
+  bool saw_anchor = false;
   uint32_t outside = 0;
   uint32_t max_distance = 0;
   uint32_t oracle_checked = 0;
@@ -207,10 +220,11 @@ int main(int argc, char **argv)
       max_distance = std::max(max_distance, distance);
     }
 
-    if(coords == gout) {
-      saw_gout = true;
-      check(coords.to_string() == "GOUT.001.000.0021", "GOUT example name");
-      check(inverter.size() == 1 && inverter[0] == std::make_pair(64u, 43u), "GOUT.001.000.0021 inverter is (64, 43)");
+    if(expect.anchor && coords == CV::rnode_coords(expect.anchor->type, expect.anchor->x, expect.anchor->y, expect.anchor->z)) {
+      const Anchor &anchor = *expect.anchor;
+      saw_anchor = true;
+      check(coords.to_string() == anchor.name, "anchor example name");
+      check(inverter.size() == 1 && inverter[0] == std::make_pair(anchor.bit_x, anchor.bit_y), "anchor inverter coordinate");
       if(!mux.empty()) {
         uint32_t min_x = mux[0].first, max_x = mux[0].first;
         uint32_t min_y = mux[0].second, max_y = mux[0].second;
@@ -220,7 +234,9 @@ int main(int argc, char **argv)
           min_y = std::min(min_y, bit.second);
           max_y = std::max(max_y, bit.second);
         }
-        check(min_x == 55 && max_x == 64 && min_y == 40 && max_y == 42, "GOUT mux bounding box is (55..64, 40..42)");
+        std::snprintf(msg, sizeof msg, "%s mux bounding box", anchor.name);
+        check(min_x == anchor.box_min_x && max_x == anchor.box_max_x &&
+              min_y == anchor.box_min_y && max_y == anchor.box_max_y, msg);
       }
     }
 
@@ -233,8 +249,9 @@ int main(int argc, char **argv)
     }
     Bits written;
     std::string other;
-    std::string diff = capture_diff(*changed, *model);
-    bool parsed = parse_cram_diff(diff, written, other);
+    std::string diff;
+    bool captured = capture_diff(*changed, *model, diff);
+    bool parsed = captured && parse_cram_diff(diff, written, other);
     if(!changed->inv_set(setting.node, setting.value))
       check(false, "inv_set restores an inverter node");
     ++oracle_checked;
@@ -243,18 +260,23 @@ int main(int argc, char **argv)
       if(printed < 8) {
         std::fprintf(stderr, "FAIL: oracle %s query=(%u,%u) written=%zu extra=\"%s\"\n",
                      coords.to_string().c_str(),
-                     inverter[0].first, inverter[0].second,
+                     inverter.empty() ? 0 : inverter[0].first,
+                     inverter.empty() ? 0 : inverter[0].second,
                      written.size(), other.c_str());
         ++printed;
       }
     }
   }
 
-  std::string restored = capture_diff(*changed, *model);
+  std::string restored;
+  check(capture_diff(*changed, *model, restored), "capture restored diff");
   check(restored.empty(), "CRAM matches the cleared model after the oracle");
-  check(saw_gout, "GOUT.001.000.0021 is an inverter node");
-  check(outside == 1987, "1987 inverter bits sit outside their mux bounding box");
-  check(max_distance == 3, "farthest inverter bit is 3 CRAM positions from its mux box");
+  if(expect.anchor)
+    check(saw_anchor, "anchor inverter node is present");
+  std::snprintf(msg, sizeof msg, "%s outside count is %u (got %u)", expect.model, expect.outside, outside);
+  check(outside == expect.outside, msg);
+  std::snprintf(msg, sizeof msg, "%s max distance is %u (got %u)", expect.model, expect.max_distance, max_distance);
+  check(max_distance == expect.max_distance, msg);
   check(mismatches == 0, "oracle mismatches");
   if(stride == 1)
     check(oracle_checked == settings.size(), "oracle covered every inverter node");
@@ -262,8 +284,39 @@ int main(int argc, char **argv)
     check(oracle_checked > 0, "sampled oracle covered at least one node");
 
   double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-  std::printf("Routing inverter CRAM: nodes=%zu unique=%zu outside=%u max_distance=%u oracle=%u mismatches=%u stride=%u seconds=%.2f: %s\n",
-              settings.size(), inverter_nodes.size(), outside, max_distance,
+  std::printf("Routing inverter CRAM %s: nodes=%zu unique=%zu outside=%u max_distance=%u oracle=%u mismatches=%u stride=%u seconds=%.2f: %s\n",
+              expect.model, settings.size(), inverter_nodes.size(), outside, max_distance,
               oracle_checked, mismatches, stride, seconds, failures || mismatches ? "FAIL" : "PASS");
   return failures || mismatches ? 1 : 0;
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+  uint32_t stride = 1;
+  const char *model_name = "5CSEBA6U23I7";
+  int argi = 1;
+  if(argi < argc && std::strcmp(argv[argi], "--sample") == 0) {
+    if(argi + 1 >= argc)
+      goto usage;
+    stride = static_cast<uint32_t>(std::strtoul(argv[argi + 1], nullptr, 10));
+    if(stride == 0)
+      return 2;
+    argi += 2;
+  }
+  if(argi < argc)
+    model_name = argv[argi++];
+  if(argi != argc) {
+  usage:
+    std::fprintf(stderr, "usage: %s [--sample N] [model]\n", argv[0]);
+    return 2;
+  }
+
+  const Expect *expect = find_expect(model_name);
+  if(!expect) {
+    std::fprintf(stderr, "no locked expectations for %s\n", model_name);
+    return 2;
+  }
+  return run_model(*expect, stride);
 }

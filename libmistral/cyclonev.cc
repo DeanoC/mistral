@@ -369,20 +369,20 @@ void mistral::CycloneV::add_cram_blocks()
   }
 }
 
-void mistral::CycloneV::diff(const CycloneV *m) const
+void mistral::CycloneV::diff(const CycloneV *m, FILE *out) const
 {
   for(int i=0; i != 32; i++)
     if(oram[i] != m->oram[i]) {
       uint64_t dt = oram[i] ^ m->oram[i];
       for(int j=0; j != 40; j++)
 	if((dt >> j) & 1)
-	  printf("oram %02d.%02d: %d -> %d\n", i, j, int((oram[i] >> j) & 1), int((m->oram[i] >> j) & 1));
+	  fprintf(out, "oram %02d.%02d: %d -> %d\n", i, j, int((oram[i] >> j) & 1), int((m->oram[i] >> j) & 1));
     }
 
   for(int i=0; i != 32; i++)
     for(unsigned int j=0; j != pram[i].size(); j++)
       if(pram[i][j] != m->pram[i][j])
-	printf("pram %02d.%05d: %d -> %d\n", i, j, pram[i][j], m->pram[i][j]);
+	fprintf(out, "pram %02d.%05d: %d -> %d\n", i, j, pram[i][j], m->pram[i][j]);
 
   for(uint32_t i = 0; i != cram.size(); i++)
     if(cram[i] != m->cram[i]) {
@@ -400,7 +400,7 @@ void mistral::CycloneV::diff(const CycloneV *m) const
 	  uint32_t ty = (y - 2) / 86;
 	  uint32_t yy = (y - 2) % 86;
 	      
-	  printf("cram %8d %05d.%05d (%03d.%03d+%03d.%02d): %d -> %d\n", pos, x, y, tx, ty, xx, yy, (cram[i] >> j) & 1, (m->cram[i] >> j) & 1);
+	  fprintf(out, "cram %8d %05d.%05d (%03d.%03d+%03d.%02d): %d -> %d\n", pos, x, y, tx, ty, xx, yy, (cram[i] >> j) & 1, (m->cram[i] >> j) & 1);
 	}
     }
 }
