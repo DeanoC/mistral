@@ -195,6 +195,26 @@ bool mistral::CycloneV::rmux_is_default(rnode_index node) const
   return rmux_get_val(*r) == rmux_patterns[r->pattern()].def;
 }
 
+void mistral::CycloneV::rnode_unlink(rnode_index n2)
+{
+  const rnode_object *r = ri2ro(n2);
+  assert(r);
+  // Fixed-source (0xfe) and source-less (0xff) nodes have no mux to reset
+  if(r->pattern() >= 0xfe)
+    return;
+  rmux_set_val(*r, rmux_patterns[r->pattern()].def);
+}
+
+void mistral::CycloneV::rnode_unlink(pnode_coords p2)
+{
+  rnode_index n2 = pnode_to_rnode(p2);
+  if(!n2) {
+    fprintf(stderr, "Error: No rnode for pnode %s to unlink\n", p2.to_string().c_str());
+    exit(1);
+  }
+  rnode_unlink(n2);
+}
+
 void mistral::CycloneV::route_set_defaults()
 {
   for(uint32_t idx = 0; idx != rnode_index_count(); idx++) {

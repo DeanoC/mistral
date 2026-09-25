@@ -6,6 +6,8 @@
 #define MISTRAL_ROUTING_MUX_CRAM_BITS 1
 #define MISTRAL_ROUTING_INVERTER_CRAM_BIT 1
 #define MISTRAL_BMUX_CRAM_BITS 1
+// rnode_unlink() is implemented (returns a routing mux to its default).
+#define MISTRAL_RNODE_UNLINK 1
 
 #include <stdint.h>
 #include <stdio.h>
