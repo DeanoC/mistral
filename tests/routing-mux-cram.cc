@@ -2,14 +2,59 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
-int main()
+namespace {
+
+using CV = mistral::CycloneV;
+using Bits = std::vector<std::pair<uint32_t, uint32_t>>;
+
+bool capture_diff(CV &changed, const CV &baseline, std::string &out)
 {
-  using CV = mistral::CycloneV;
-  using Bits = std::vector<std::pair<uint32_t, uint32_t>>;
+  out.clear();
+  FILE *fp = std::tmpfile();
+  if(!fp)
+    return false;
+  changed.diff(&baseline, fp);
+  std::fflush(fp);
+  std::rewind(fp);
+  char buf[4096];
+  while(size_t n = std::fread(buf, 1, sizeof buf, fp))
+    out.append(buf, n);
+  std::fclose(fp);
+  return true;
+}
+
+bool parse_cram_diff(const std::string &text, Bits &bits, std::string &other)
+{
+  bits.clear();
+  other.clear();
+  size_t cursor = 0;
+  while(cursor < text.size()) {
+    size_t eol = text.find('\n', cursor);
+    if(eol == std::string::npos)
+      eol = text.size();
+    std::string line = text.substr(cursor, eol - cursor);
+    cursor = eol < text.size() ? eol + 1 : text.size();
+    if(line.empty())
+      continue;
+    unsigned linear = 0, x = 0, y = 0;
+    if(std::sscanf(line.c_str(), "cram %u %u.%u", &linear, &x, &y) == 3)
+      bits.emplace_back(x, y);
+    else {
+      other = line;
+      return false;
+    }
+  }
+  return true;
+}
+
+int check_sx120f()
+{
   std::unique_ptr<CV> cv(CV::get_model("5CSEBA6U23I7"));
   if(!cv)
     return 2;
@@ -78,4 +123,87 @@ int main()
   std::printf("Routing mux CRAM coordinates: 7 outside muxes, 1 inside mux, boundaries, unknown/fixed: %s\n",
               failures ? "FAIL" : "PASS");
   return failures ? 1 : 0;
+}
+
+int check_gx25f()
+{
+  const char *model_name = "5CGXFC3B6F23C6";
+  std::unique_ptr<CV> cv(CV::get_model(model_name));
+  std::unique_ptr<CV> changed(CV::get_model(model_name));
+  if(!cv || !changed)
+    return 2;
+  int failures = 0;
+  auto check = [&](bool value, const char *message) {
+    if(!value) {
+      std::fprintf(stderr, "FAIL: %s\n", message);
+      ++failures;
+    }
+  };
+  check(cv->get_cram_sx() == 3856 && cv->get_cram_sy() == 3412, "gx25f CRAM dimensions");
+  Bits bits{{1, 2}};
+  check(!cv->rnode_mux_cram_bits(CV::rnode_coords(CV::H6, 127, 127, 1023), bits), "gx25f unknown node rejects");
+  check(bits.empty(), "gx25f unknown node clears previous result");
+
+  const uint32_t sx = cv->get_cram_sx();
+  const uint32_t sy = cv->get_cram_sy();
+  int in_grid = 0;
+  int linked = 0;
+  for(uint32_t index = 0; index != cv->rnode_index_count() && (in_grid < 32 || linked < 4); ++index) {
+    const CV::rnode_object *node = cv->ri2ro(index);
+    if(!node || node->pattern() >= 0xfe || node->sources_count() == 0)
+      continue;
+    Bits footprint;
+    if(!cv->rnode_mux_cram_bits(node->rc(), footprint) || footprint.empty()) {
+      check(false, "gx25f programmable mux has bits");
+      continue;
+    }
+    bool inside = std::all_of(footprint.begin(), footprint.end(), [&](const std::pair<uint32_t, uint32_t> &bit) {
+      return bit.first < sx && bit.second < sy;
+    });
+    if(in_grid < 32) {
+      check(inside, "gx25f mux bits lie in the CRAM grid");
+      ++in_grid;
+    }
+    if(linked >= 4 || !inside)
+      continue;
+    bool wrote = false;
+    for(uint32_t s = 0; s != node->sources_count() && !wrote; ++s) {
+      changed->clear();
+      changed->rnode_link(node->sources_begin()[s], node->ri());
+      std::string text, other;
+      Bits written;
+      if(!capture_diff(*changed, *cv, text) || !parse_cram_diff(text, written, other)) {
+        check(false, "gx25f link diff is cram coordinates");
+        wrote = true;
+        break;
+      }
+      if(written.empty())
+        continue;
+      bool covered = std::all_of(written.begin(), written.end(), [&](const std::pair<uint32_t, uint32_t> &bit) {
+        return std::find(footprint.begin(), footprint.end(), bit) != footprint.end();
+      });
+      check(covered, "gx25f diff bits are inside the mux footprint");
+      wrote = true;
+      ++linked;
+    }
+  }
+  check(in_grid == 32, "gx25f found programmable muxes");
+  check(linked == 4, "gx25f linked non-default mux sources");
+  changed->clear();
+  std::string restored;
+  check(capture_diff(*changed, *cv, restored) && restored.empty(), "gx25f CRAM restored after links");
+  std::printf("Routing mux CRAM gx25f: grid=%d linked=%d: %s\n",
+              in_grid, linked, failures ? "FAIL" : "PASS");
+  return failures ? 1 : 0;
+}
+
+} // namespace
+
+int main()
+{
+  int sx = check_sx120f();
+  int gx = check_gx25f();
+  if(sx == 2 || gx == 2)
+    return 2;
+  return sx || gx ? 1 : 0;
 }

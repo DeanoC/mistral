@@ -56,11 +56,14 @@ The fixtures use MLAB X8/Y32 or LAB X7/Y32 on `5CSEBA6U23I7`.
 ## Routing mux CRAM coordinates
 
 `routing-mux-cram` checks the physical configuration footprint of seven
-routing muxes isolated from an outside-slot ZX81 composition difference,
-plus an inside-slot mux. Logical wire tile coordinates do not necessarily
-identify the tile containing its programmable bits. The test checks exact
-coordinates, half-open boundaries, output replacement, unknown nodes and a
-fixed connection with no programmable mux.
+routing muxes isolated from an outside-slot ZX81 composition difference on
+`5CSEBA6U23I7` (CRAM 7605 by 7024), plus an inside-slot mux. Logical wire
+tile coordinates do not necessarily identify the tile containing its
+programmable bits. The test checks exact coordinates, half-open boundaries,
+output replacement, unknown nodes and a fixed connection with no programmable
+mux. It also loads `5CGXFC3B6F23C6` (gx25f, CRAM 3856 by 3412): programmable
+mux coordinates stay inside that grid, and `rnode_link` plus `diff` shows
+each written bit inside `rnode_mux_cram_bits`.
 
 ```sh
 build/tests/routing-mux-cram
@@ -74,22 +77,28 @@ are not RBF frame/byte/bit offsets.
 `rnode_mux_cram_bits` is only the programmable routing-mux selector.
 `rnode_inverter_cram_bit` is the separate programmable routing inverter
 written by `inv_set` / `inv_default_set` (`pos_and_def` with the default
-nibble cleared, then split by `cram_sx`). On `5CSEBA6U23I7` that bit is
-outside the mux's own bounding box for 1,987 nodes, by as much as 3 CRAM
-positions (`GOUT.001.000.0021` is `(64, 43)`, one row below its mux).
-`rnode_cram_footprint` is the union of the two. A full frozen-shell check
-also needs block mux/BEL configuration, including dcram-indexed bits, for
-blocks in or near the slot.
+nibble cleared, then split by `cram_sx`). Each routing node has at most one
+inverter entry. The test asserts that by comparing `inv_get()` with the set
+of inverter nodes, so the first table match is the only match.
+On `5CSEBA6U23I7` that bit is outside the mux's own bounding box for 1,987
+nodes, by as much as 3 CRAM positions (`GOUT.001.000.0021` is `(64, 43)`,
+one row below its mux). On `5CGXFC3B6F23C6` the same check finds 1,430
+outside bits, also at most 3 positions away. `rnode_cram_footprint` is the
+union of the mux bits and that inverter. A full frozen-shell check also
+needs block mux/BEL configuration, including dcram-indexed bits, for blocks
+in or near the slot.
 
-`routing-inverter-cram` checks that split on `5CSEBA6U23I7`. It counts the
-11,895 inverter nodes, checks the `GOUT.001.000.0021` coordinate, rejects
-an unknown node, and returns an empty result for nodes with no inverter.
-The oracle clears to the model's default, flips each inverter with
-`inv_set`, and reads the written coordinate back from `CycloneV::diff`.
-Pass `--sample N` to oracle every Nth inverter instead of all of them.
+`routing-inverter-cram` checks that split on `5CSEBA6U23I7` (11,895 inverter
+nodes, the `GOUT.001.000.0021` coordinate) and on `5CGXFC3B6F23C6` (5,922
+inverter nodes). It rejects an unknown node and returns an empty result for
+nodes with no inverter. The oracle clears to the model's default, flips each
+inverter with `inv_set`, and reads the written coordinate back from
+`CycloneV::diff`. ctest passes `--sample 20`. The bare binary is the full
+sweep, for a manual or nightly run.
 
 ```sh
 build/tests/routing-inverter-cram
+build/tests/routing-inverter-cram 5CGXFC3B6F23C6
 build/tests/routing-inverter-cram --sample 20
 ```
 

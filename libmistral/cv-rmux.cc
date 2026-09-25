@@ -68,6 +68,7 @@ void mistral::CycloneV::rmux_load()
   dn_table2 = reinterpret_cast<const dnode_table2 *>(data + gdhead->off_dnode_table2);
   dn_table3 = reinterpret_cast<const dnode_table3 *>(data + gdhead->off_dnode_table3);
   dn_info   = reinterpret_cast<const dnode_info *>(data + gdhead->off_dnode_drivers);
+  build_inverter_index();
 }
 
 uint32_t mistral::CycloneV::rmux_get_val(const rnode_object &r) const
