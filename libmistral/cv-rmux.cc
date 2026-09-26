@@ -1189,11 +1189,11 @@ void mistral::CycloneV::rnode_timing_generate_line(const rnode_index *targets,
       next_c = 0;
 
     } else if(target_pos[tpos] & 0x8000) {
-      next_pos = target_pos[tpos] & 0x4fff;
+      next_pos = target_pos[tpos] & 0x3fff;
       next_c = targets_caps[tposc];
 
     } else {
-      next_pos = target_pos[tpos] & 0x4fff;
+      next_pos = target_pos[tpos] & 0x3fff;
       const rnode_object *rnt = ri2ro(targets[tpost]);
       int back_incoming_index = target_pos[tpos] & 0x4000 ? 1 : 0;
       const dnode_driver &back_driver = driver_bank[rnt->driver(back_incoming_index)];
