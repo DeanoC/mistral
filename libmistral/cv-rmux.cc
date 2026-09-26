@@ -58,6 +58,7 @@ void mistral::CycloneV::rmux_load()
   one_infos = reinterpret_cast<const uint32_t *>(data + dhead->off_1);
   dcram_infos = reinterpret_cast<const uint32_t *>(data + dhead->off_dcram);
   hps_infos = dhead->off_hps ? reinterpret_cast<const xycoords *>(data + dhead->off_hps) : nullptr;
+  init_p2r_maps();
   fixed_infos = reinterpret_cast<const fixed_block_info *>(data + dhead->off_fixed);
   dqs16_infos = reinterpret_cast<const dqs16_info *>(data + dhead->off_dqs16);
   iob_infos = reinterpret_cast<const ioblock_info *>(data + dhead->off_iob);
@@ -386,9 +387,9 @@ std::vector<std::pair<mistral::CycloneV::pnode_coords, mistral::CycloneV::rnode_
 
 mistral::CycloneV::rnode_index mistral::CycloneV::pnode_to_rnode(pnode_coords pn) const
 {
-  for(uint32_t i = 0; i != dhead->count_p2r; i++)
-    if(p2r_infos[i].p == pn)
-      return p2r_infos[i].r;
+  auto p2r_it = p2r_map.find(pn.v);
+  if(p2r_it != p2r_map.end())
+    return p2r_it->second;
 
   xycoords p = pn.p();
   xycoords p1(p.x(), p.y()+1);
@@ -908,11 +909,21 @@ mistral::CycloneV::pnode_coords mistral::CycloneV::rnode_to_pnode(rnode_index ri
     }
   }
 
-  for(uint32_t i = 0; i != dhead->count_p2r; i++)
-    if(p2r_infos[i].r == ri)
-      return p2r_infos[i].p;
+  auto ri_it = r2p_map.find(ri);
+  if(ri_it != r2p_map.end())
+    return pnode_coords(ri_it->second);
 
   return pnode_coords();
+}
+
+void mistral::CycloneV::init_p2r_maps()
+{
+  p2r_map.reserve(dhead->count_p2r);
+  r2p_map.reserve(dhead->count_p2r);
+  for(uint32_t i = 0; i != dhead->count_p2r; i++) {
+    p2r_map.emplace(p2r_infos[i].p.v, p2r_infos[i].r);
+    r2p_map.emplace(p2r_infos[i].r, p2r_infos[i].p.v);
+  }
 }
 
 std::vector<mistral::CycloneV::pnode_coords> mistral::CycloneV::p2p_from(pnode_coords pn) const

@@ -1194,6 +1194,10 @@ namespace mistral {
     const rnode_line_information *rli_data;
 
     const p2r_info *p2r_infos;
+    // pnode <-> rnode lookups: the data is a flat array, hashed at load
+    std::unordered_map<uint64_t, rnode_index> p2r_map;
+    std::unordered_map<rnode_index, uint64_t> r2p_map;
+    void init_p2r_maps();
     const p2p_info *p2p_infos;
     const inverter_info *inverter_infos;
     // Indices into inverter_infos, sorted by node. Ties keep table order,
