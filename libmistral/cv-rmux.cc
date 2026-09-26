@@ -208,7 +208,7 @@ void mistral::CycloneV::rnode_unlink(rnode_index n2)
 void mistral::CycloneV::rnode_unlink(pnode_coords p2)
 {
   rnode_index n2 = pnode_to_rnode(p2);
-  if(!n2) {
+  if(n2 == 0xffffffff) {
     fprintf(stderr, "Error: No rnode for pnode %s to unlink\n", p2.to_string().c_str());
     exit(1);
   }
