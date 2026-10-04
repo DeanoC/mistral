@@ -8,6 +8,8 @@
 #define MISTRAL_BMUX_CRAM_BITS 1
 // rnode_unlink() is implemented (returns a routing mux to its default).
 #define MISTRAL_RNODE_UNLINK 1
+// bmux_b_set(true) sets every bit of a multi-bit boolean field.
+#define MISTRAL_MULTIBIT_BOOL_SET 1
 
 #include <stdint.h>
 #include <stdio.h>

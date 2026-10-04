@@ -27,6 +27,10 @@ add_executable(bmux-cram-bits bmux-cram-bits.cc)
 target_link_libraries(bmux-cram-bits PUBLIC mistral lzma)
 target_include_directories(bmux-cram-bits PUBLIC ${MISTRAL_TEST_INCLUDES})
 
+add_executable(multibit-bool multibit-bool.cc)
+target_link_libraries(multibit-bool PUBLIC mistral lzma)
+target_include_directories(multibit-bool PUBLIC ${MISTRAL_TEST_INCLUDES})
+
 add_test(NAME dsp-ports COMMAND dsp-ports 5CSEBA6U23I7)
 add_test(NAME lab-clock-oracle
   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run-lab-clock-oracle.py $<TARGET_FILE:lab-clock-oracle>
@@ -36,3 +40,7 @@ add_test(NAME routing-mux-cram COMMAND routing-mux-cram)
 add_test(NAME routing-inverter-cram COMMAND routing-inverter-cram --sample 20 5CSEBA6U23I7)
 add_test(NAME routing-inverter-cram-gx25f COMMAND routing-inverter-cram --sample 20 5CGXFC3B6F23C6)
 add_test(NAME bmux-cram-bits COMMAND bmux-cram-bits)
+add_test(NAME multibit-bool COMMAND multibit-bool)
+add_test(NAME multibit-bool-oracle
+  COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run-multibit-bool-oracle.py $<TARGET_FILE:multibit-bool>
+)

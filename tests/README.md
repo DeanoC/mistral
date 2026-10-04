@@ -125,3 +125,23 @@ build/tests/bmux-cram-bits
 
 This is an offline table/accessor regression. It does not establish physical
 hardware acceptance or replace the final bitstream boundary comparison.
+
+## Multi-bit boolean fields
+
+Some boolean fields span several redundant bits that Quartus always writes
+together: GPIO `slew_rate_slow` (2), `lvds_buffer_used` (2), M10K `pr_en` (2),
+DSP `partial_reconfig_en` (3) and a few transceiver fields.  `bmux_b_set`
+previously wrote the value 1, setting only the lowest bit, so a slow-slew pad
+came out half configured.  It now sets every bit; reads still return true for
+any set bit.  `MISTRAL_MULTIBIT_BOOL_SET` lets consumers detect the fix.
+
+`multibit-bool` checks that true changes exactly the field's bit count for
+GPIO, M10K and DSP fields and that false restores the default.  With the
+Quartus fast/slow slew-rate pair from
+[fixtures/gpio-slew](fixtures/gpio-slew/README.md) it also requires the fast
+reference plus `SLEW_RATE_SLOW` to serialize byte-identically to the slow one:
+
+```sh
+build/tests/multibit-bool
+python3 tests/run-multibit-bool-oracle.py build/tests/multibit-bool
+```
