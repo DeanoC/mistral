@@ -7,9 +7,9 @@
 #include <string>
 #include <vector>
 
-// Multi-bit boolean fields are redundant bit groups that Quartus writes
-// together.  Check that true sets every bit of each such field on this die,
-// then compare against a Quartus fast/slow slew-rate pair when given.
+// Known redundant GPIO/M10K/DSP fields write every bit together; HIP
+// bitfields retain the historical scalar value. Compare GPIO slew rate
+// against a Quartus fast/slow pair when given.
 
 namespace {
 
@@ -64,6 +64,7 @@ int main(int argc, char **argv)
   struct Case { const char *name; CV::block_type_t block; CV::xycoords pos; CV::bmux_type_t mux; int idx; int bits; };
   const Case cases[] = {
     {"GPIO SLEW_RATE_SLOW", CV::GPIO, gpio, CV::SLEW_RATE_SLOW, pad, 2},
+    {"GPIO LVDS_BUFFER_USED", CV::GPIO, gpio, CV::LVDS_BUFFER_USED, 0, 2},
     {"M10K PR_EN", CV::M10K, baseline->m10k_get_pos().front(), CV::PR_EN, 0, 2},
     {"DSP PARTIAL_RECONFIG_EN", CV::DSP, baseline->dsp_get_pos().front(), CV::PARTIAL_RECONFIG_EN, 0, 3},
   };
@@ -91,6 +92,35 @@ int main(int argc, char **argv)
     }
   }
 
+  // HIP multi-bit booleans contain independent channel/control bits.
+  // Preserve the historical scalar true value (only the lowest bit).
+  std::unique_ptr<CV> hip_baseline(CV::get_model("5CGXFC3B6F23C6"));
+  std::unique_ptr<CV> hip_changed(CV::get_model("5CGXFC3B6F23C6"));
+  if(!hip_baseline || !hip_changed || hip_baseline->hip_get_pos().empty())
+    return 2;
+  const CV::bmux_type_t hip_fields[] = {
+    CV::VC_ENABLE, CV::LOW_PRIORITY_VC, CV::VC_ARBITRATION,
+    CV::TESTMODE_CONTROL, CV::SKP_INSERTION_CONTROL,
+  };
+  for(CV::bmux_type_t mux : hip_fields) {
+    hip_baseline->clear();
+    hip_changed->clear();
+    const CV::xycoords pos = hip_changed->hip_get_pos().front();
+    CV::bmux_setting_t s;
+    if(!hip_changed->bmux_b_set(CV::HIP, pos, mux, 0, true) ||
+       !hip_changed->bmux_get(CV::HIP, pos, mux, 0, s) || !s.s ||
+       count_diff_lines(*hip_changed, *hip_baseline) != 1) {
+      std::fprintf(stderr, "FAIL: HIP field %d true must change only its lowest bit\n", int(mux));
+      ++failures;
+    }
+    if(!hip_changed->bmux_b_set(CV::HIP, pos, mux, 0, false) ||
+       !hip_changed->bmux_get(CV::HIP, pos, mux, 0, s) || s.s ||
+       count_diff_lines(*hip_changed, *hip_baseline) != 0) {
+      std::fprintf(stderr, "FAIL: HIP field %d false does not restore the default\n", int(mux));
+      ++failures;
+    }
+  }
+
   if(argc == 3) {
     std::unique_ptr<CV> fast(CV::get_model("5CSEBA6U23I7"));
     std::unique_ptr<CV> slow(CV::get_model("5CSEBA6U23I7"));
@@ -109,7 +139,7 @@ int main(int argc, char **argv)
 
   if(failures)
     return 1;
-  std::puts(argc == 3 ? "PASS: multi-bit booleans set every bit; SLEW_RATE_SLOW reproduces the Quartus slow-slew RBF"
-		      : "PASS: multi-bit booleans set every bit");
+  std::puts(argc == 3 ? "PASS: redundant booleans set every bit; HIP bitfields preserved; SLEW_RATE_SLOW reproduces the Quartus slow-slew RBF"
+		      : "PASS: redundant booleans set every bit; HIP bitfields preserved");
   return 0;
 }

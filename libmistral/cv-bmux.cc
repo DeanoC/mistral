@@ -1054,11 +1054,15 @@ bool mistral::CycloneV::bmux_b_set(block_type_t btype, xycoords pos, bmux_type_t
   if(!pmux || midx < 0 || midx >= pmux->span || pmux->stype != MT_BOOL)
     return false;
 
-  // A multi-bit boolean is a group of redundant bits that Quartus always
-  // writes together (e.g. GPIO slew_rate_slow sets both of its bits), so
-  // true sets every bit of the field.  Reading any set bit yields true.
-  uint64_t val = 0;
-  if(s)
+  // Only known redundant fields should write all their bits together.
+  // Other MT_BOOL fields encode independent bits (e.g. HIP VC_ENABLE)
+  // and must retain the historical scalar value. Reads are unchanged.
+  const bool redundant =
+    (btype == GPIO && (mux == SLEW_RATE_SLOW || mux == LVDS_BUFFER_USED)) ||
+    (btype == M10K && mux == PR_EN) ||
+    (btype == DSP && mux == PARTIAL_RECONFIG_EN);
+  uint64_t val = s;
+  if(s && redundant)
     val = pmux->bits >= 64 ? ~uint64_t(0) : (uint64_t(1) << pmux->bits) - 1;
   bmux_val_set(base, pmux, midx, mode, val);
   return true;
