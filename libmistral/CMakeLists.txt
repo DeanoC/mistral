@@ -61,6 +61,17 @@ endforeach()
 
 # Binary routing/timing information generation
 
+# Embed a generated binary as _binary_<sym>_start/_end through an .incbin in a
+# generated C++ source, which works with any assembler the compiler drives
+# (ELF and Mach-O alike); GNU "ld -r -b binary" does not exist on macOS.
+macro(embed_bin bin sym source)
+    set(EMBED_BIN ${CMAKE_CURRENT_BINARY_DIR}/${bin})
+    set(EMBED_SYM ${sym})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/embed-bin.cc.in ${CMAKE_CURRENT_BINARY_DIR}/${source} @ONLY)
+    set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${source} PROPERTIES OBJECT_DEPENDS ${EMBED_BIN})
+    list(APPEND mistral_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/${source})
+endmacro()
+
 foreach(die e50f gx25f gt75f gt150f gt300f sx50f sx120f)
     add_custom_command(
        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${die}-r.bin
@@ -68,14 +79,7 @@ foreach(die e50f gx25f gt75f gt150f gt300f sx50f sx120f)
        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/../generator/generator ${DATA}/${die}-r.txt.xz ${DATA}/${die}-l.txt.xz ${DATA}/${die}-d.txt.xz ${DATA}/${die}-p2r.txt ${DATA}/${die}-p2p.txt ${DATA}/${die}-inv.txt
     )
 
-    add_custom_command(
-       OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cvd-${die}-r.o
-       WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-       COMMAND ld -r -b binary -o cvd-${die}-r.o ${die}-r.bin
-       DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${die}-r.bin
-    )
-
-    list(APPEND mistral_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/cvd-${die}-r.o)
+    embed_bin(${die}-r.bin ${die}_r_bin cvd-${die}-r.cc)
 
 endforeach()
 
@@ -88,17 +92,13 @@ add_custom_command(
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/../generator/generator ${DATA}/driver-models.txt.xz
 )
 
-add_custom_command(
-   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cv-global.o
-   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-   COMMAND ld -r -b binary -o cv-global.o global.bin
-   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/global.bin
-)
-
-list(APPEND mistral_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/cv-global.o)
+embed_bin(global.bin global_bin cv-global.cc)
 
 
 add_library(mistral ${mistral_SOURCES})
+find_package(LibLZMA REQUIRED)
+target_include_directories(mistral PRIVATE ${LIBLZMA_INCLUDE_DIRS})
+target_link_libraries(mistral PUBLIC ${LIBLZMA_LIBRARIES})
 add_dependencies(mistral tools)
 add_dependencies(mistral generator)
 target_include_directories(mistral PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/../tools ${CMAKE_CURRENT_SOURCE_DIR} /toto)

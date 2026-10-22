@@ -8,27 +8,27 @@ set(MISTRAL_TEST_INCLUDES
 )
 
 add_executable(dsp-ports dsp-ports.cc)
-target_link_libraries(dsp-ports PUBLIC mistral lzma)
+target_link_libraries(dsp-ports PUBLIC mistral)
 target_include_directories(dsp-ports PUBLIC ${MISTRAL_TEST_INCLUDES})
 
 add_executable(lab-clock-oracle lab-clock-oracle.cc)
-target_link_libraries(lab-clock-oracle PUBLIC mistral lzma)
+target_link_libraries(lab-clock-oracle PUBLIC mistral)
 target_include_directories(lab-clock-oracle PUBLIC ${MISTRAL_TEST_INCLUDES})
 
 add_executable(routing-mux-cram routing-mux-cram.cc)
-target_link_libraries(routing-mux-cram PUBLIC mistral lzma)
+target_link_libraries(routing-mux-cram PUBLIC mistral)
 target_include_directories(routing-mux-cram PUBLIC ${MISTRAL_TEST_INCLUDES})
 
 add_executable(routing-inverter-cram routing-inverter-cram.cc)
-target_link_libraries(routing-inverter-cram PUBLIC mistral lzma)
+target_link_libraries(routing-inverter-cram PUBLIC mistral)
 target_include_directories(routing-inverter-cram PUBLIC ${MISTRAL_TEST_INCLUDES})
 
 add_executable(bmux-cram-bits bmux-cram-bits.cc)
-target_link_libraries(bmux-cram-bits PUBLIC mistral lzma)
+target_link_libraries(bmux-cram-bits PUBLIC mistral)
 target_include_directories(bmux-cram-bits PUBLIC ${MISTRAL_TEST_INCLUDES})
 
 add_executable(multibit-bool multibit-bool.cc)
-target_link_libraries(multibit-bool PUBLIC mistral lzma)
+target_link_libraries(multibit-bool PUBLIC mistral)
 target_include_directories(multibit-bool PUBLIC ${MISTRAL_TEST_INCLUDES})
 
 add_test(NAME dsp-ports COMMAND dsp-ports 5CSEBA6U23I7)
