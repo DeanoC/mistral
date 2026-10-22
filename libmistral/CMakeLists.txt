@@ -68,7 +68,13 @@ macro(embed_bin bin sym source)
     set(EMBED_BIN ${CMAKE_CURRENT_BINARY_DIR}/${bin})
     set(EMBED_SYM ${sym})
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/embed-bin.cc.in ${CMAKE_CURRENT_BINARY_DIR}/${source} @ONLY)
-    set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${source} PROPERTIES OBJECT_DEPENDS ${EMBED_BIN})
+    # These translation units only define symbols in top-level assembly. Keep
+    # them as native objects so the static archive exposes those symbols to
+    # the linker when the rest of the library is built with IPO/LTO.
+    set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${source} PROPERTIES
+        OBJECT_DEPENDS ${EMBED_BIN}
+        COMPILE_OPTIONS "-fno-lto"
+    )
     list(APPEND mistral_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/${source})
 endmacro()
 
