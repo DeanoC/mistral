@@ -1184,7 +1184,7 @@ void mistral::CycloneV::rnode_timing_generate_line(const rnode_index *targets,
 
   int tpost = 0, tposc = 0;
   for(int i=0; i != tpos; i++)
-    if(target_pos[tpos] & 0x8000)
+    if(target_pos[i] & 0x8000)
       tposc++;
     else
       tpost++;
@@ -1268,11 +1268,13 @@ void mistral::CycloneV::rnode_timing_generate_line(const rnode_index *targets,
       goto done;
 
     case in_line:
-      tpos++;
+      // Advance the counter for the entry just consumed, before moving to
+      // the next position (which may already be past the end of the array).
       if(target_pos[tpos] & 0x8000)
 	tposc++;
       else
-	tpost++;      
+	tpost++;
+      tpos++;
       if(!second_span && tpos == split_edge)
 	mode = before_split;
       if(second_span && tpos == target_positions_count)

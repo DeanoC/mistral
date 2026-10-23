@@ -44,3 +44,10 @@ add_test(NAME multibit-bool COMMAND multibit-bool)
 add_test(NAME multibit-bool-oracle
   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run-multibit-bool-oracle.py $<TARGET_FILE:multibit-bool>
 )
+
+add_executable(timing-line-loads timing-line-loads.cc)
+# GCC/Clang test-only access to the line generator and generated RC network.
+target_compile_options(timing-line-loads PRIVATE -fno-access-control)
+target_link_libraries(timing-line-loads PUBLIC mistral)
+target_include_directories(timing-line-loads PUBLIC ${MISTRAL_TEST_INCLUDES})
+add_test(NAME timing-line-loads COMMAND timing-line-loads)
