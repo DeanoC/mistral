@@ -304,7 +304,7 @@ int main(int argc, char **argv)
     size_t dcrams = dcram_info.size()*sizeof(uint32_t);
     size_t hpss   = hps.data.empty() ? 0 : sizeof(xycoords)*I_HPS_COUNT;
     size_t fixeds = FB_COUNT * sizeof(fixed_block_info);
-    size_t dqs16s = dqs16_info.size() * sizeof(dqs16_info);
+    size_t dqs16s = dqs16_info.size() * sizeof(dqs16_info[0]);
     size_t iobs   = iob.data.size() * sizeof(ioblock_info);
 
     dh->off_roh = opos - output.data();
