@@ -3,6 +3,30 @@
 Build the library as usual, then either `ctest` from the build directory or
 the commands below.  No hardware is accessed.
 
+## Timing line load ordering
+
+`timing-line-loads` calls the actual RC line generator and reconstructs each
+capacitor's physical position from its resistor chain. It checks all receiver /
+fixed-capacitor sequences up to six entries, every driver split, both edges,
+and loads exactly on the split. Distinct load values expose skipped or reused
+entries. Empty lines and the final entry are included.
+
+A further 160 cases configure two real receiver muxes through `rnode_link`,
+verify their selected sources, and exercise all four active/inactive combinations
+with different connected/disconnected capacitances. They check the exact multiset
+of output receiver identities and physical positions, including receivers on a
+split boundary, and reject missing, extra or misplaced outputs.
+
+```sh
+build/tests/timing-line-loads
+```
+
+The old generator counted the next entry after consuming a load and repeatedly
+counted one position when initializing the second span. It could associate the
+wrong receiver or fixed capacitor with a line position and read past the final
+position. Building with AddressSanitizer also catches that overread; this is a
+host model regression, not a physical timing calibration.
+
 ## DSP port round trips
 
 `dsp-ports` walks every DATAIN and RESULT port on every DSP site of the
