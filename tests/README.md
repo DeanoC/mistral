@@ -153,15 +153,19 @@ hardware acceptance or replace the final bitstream boundary comparison.
 ## Multi-bit boolean fields
 
 Some boolean fields span several redundant bits that Quartus writes
-together: GPIO `slew_rate_slow` (2), `lvds_buffer_used` (2), M10K `pr_en` (2),
+together: GPIO `slew_rate_slow` (2), M10K `pr_en` (2),
 and DSP `partial_reconfig_en` (3).  `bmux_b_set`
 previously wrote the value 1, setting only the lowest bit, so a slow-slew pad
-came out half configured.  It now sets every bit for those four fields;
+came out half configured.  It now sets every bit for those three fields;
 reads still return true for any set bit. Other fields retain the historical
 scalar true value (1), including HIP `vc_enable`, `low_priority_vc`,
 `vc_arbitration`, `testmode_control`, and `skp_insertion_control`, whose bits
 must not be treated as redundant copies. Transceiver fields are also left
 unchanged. `MISTRAL_MULTIBIT_BOOL_SET` lets consumers detect the fix.
+
+GPIO `lvds_buffer_used` is not one of them: it is a 2-bit raw field. HPS DDR3
+reference designs set 01 on DQ/DM blocks and 11 on DQS blocks (00 elsewhere),
+so a boolean can round-trip at most one of the two.
 
 `multibit-bool` checks that true changes exactly the field's bit count for
 GPIO, M10K and DSP fields and that false restores the default. It also checks
