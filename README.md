@@ -12,6 +12,11 @@ MLAB block-mux coordinates in that same decoded CRAM `(x, y)` grid.
 Other block types, dcram, pram, and oram are not covered yet. See
 `tests/README.md`.
 
+The analogue simulator measures transitions and settling against the supply
+passed to `add_gnd_vdd`. `timing-supply-voltage` checks rise/fall delay invariance
+of a linear RC circuit at the 1.0, 1.006 and 1.18 V model supplies. This check
+does not qualify driver-table or whole-design timing at those corners.
+
 
 ## Compile and install
 

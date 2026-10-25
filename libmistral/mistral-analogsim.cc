@@ -170,6 +170,7 @@ void mistral::AnalogSim::add_gnd_vdd(double vdd)
     fprintf(stderr, "add_gnd_vdd called on non-empty circuit\n");
     abort();
   }
+  config_vdd = vdd;
   nodes.emplace_back(node(N_V, 0,   "gnd"));
   nodes.emplace_back(node(N_V, vdd, "vdd"));
 }
