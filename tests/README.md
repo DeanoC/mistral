@@ -11,6 +11,12 @@ fixed-capacitor sequences up to six entries, every driver split, both edges,
 and loads exactly on the split. Distinct load values expose skipped or reused
 entries. Empty lines and the final entry are included.
 
+A further 160 cases configure two real receiver muxes through `rnode_link`,
+verify their selected sources, and exercise all four active/inactive combinations
+with different connected/disconnected capacitances. They check the exact multiset
+of output receiver identities and physical positions, including receivers on a
+split boundary, and reject missing, extra or misplaced outputs.
+
 ```sh
 build/tests/timing-line-loads
 ```
