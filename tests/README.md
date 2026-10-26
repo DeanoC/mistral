@@ -3,6 +3,22 @@
 Build the library as usual, then either `ctest` from the build directory or
 the commands below.  No hardware is accessed.
 
+## Supply and corner timing
+
+`timing-supply-voltage` compares a linear RC circuit with its analytical delay
+envelope and requires voltage invariance at the model supplies.
+`timing-corner-lookups` independently samples linear 2D/3D current functions
+on the supply-spaced grids, including physical gate-axis origins,
+interpolation/extrapolation and derivatives in volts.
+`timing-source-waveforms` exercises actual LAB/MLAB source ports in registered
+and combinational modes at both slow and minimum 100 C/-40 C corners. Its
+returned waveforms must start/end at the selected supply rails.
+`timing-signed-interval` simulates a powered buffer sharpening a slow input;
+its finite negative threshold delay must retain an ordered derating envelope.
+
+These host regressions check model units and numerical contracts. They do
+not calibrate routing/cell/clock timing against Quartus or qualify a board.
+
 ## Timing line load ordering
 
 `timing-line-loads` calls the actual RC line generator and reconstructs each

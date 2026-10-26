@@ -17,6 +17,11 @@ passed to `add_gnd_vdd`. `timing-supply-voltage` checks rise/fall delay invarian
 of a linear RC circuit at the 1.0, 1.006 and 1.18 V model supplies. This check
 does not qualify driver-table or whole-design timing at those corners.
 
+Driver-table interpolation uses the selected supply as its voltage span; the
+3D gate axis retains its stored physical origin. LAB source waves use circuit
+volts, and signed threshold-delay derating retains ordered intervals. Focused
+host regressions are described in `tests/README.md`.
+
 
 ## Compile and install
 
