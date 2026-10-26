@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include <utility>
+#include <algorithm>
 
 void mistral::AnalogSim::vector_alloc(std::vector<double> &vect, int size)
 {
@@ -440,8 +441,10 @@ bool mistral::AnalogSim::output_record(double time, bool test_end)
 	  double delay = cross_time - input_cross_time;
 	  //	  fprintf(stderr, "delay %g %g\n", delay*config_timing_scale_min, delay*config_timing_scale_max);
 	  for(auto &ow : output_waves[n.w]) {
-	    ow.second->mi = delay * config_timing_scale_min;
-	    ow.second->mx = delay * config_timing_scale_max;
+	    // A sharpened edge can cross the threshold before its input. Preserve
+	    // that finite advance while keeping its derated interval ordered.
+	    ow.second->mi = std::min(delay * config_timing_scale_min, delay * config_timing_scale_max);
+	    ow.second->mx = std::max(delay * config_timing_scale_min, delay * config_timing_scale_max);
 	  }
 	}
 

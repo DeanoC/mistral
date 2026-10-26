@@ -1057,8 +1057,8 @@ void mistral::CycloneV::t2_lookup::lookup(double x, double y, double &v, double 
 {
   size_t xp, yp;
   double xpf, ypf, xpf1, ypf1;
-  table_pos_to_index(x, xp, xpf, xpf1);
-  table_pos_to_index(y, yp, ypf, ypf1);
+  table_pos_to_index(x * inv_vdd, xp, xpf, xpf1);
+  table_pos_to_index(y * inv_vdd, yp, ypf, ypf1);
 
   //      xy
   double v00 = table->value[xp*11 + yp +   0];
@@ -1068,16 +1068,16 @@ void mistral::CycloneV::t2_lookup::lookup(double x, double y, double &v, double 
 
   v = v00 * xpf1 * ypf1 + v01 * xpf1 * ypf + v10 * xpf * ypf1 + v11 * xpf * ypf;
 
-  dvx = ((v11 - v01) * ypf + (v10 - v00) * ypf1) * 10.0;
-  dvy = ((v11 - v10) * xpf + (v01 - v00) * xpf1) * 10.0;
+  dvx = ((v11 - v01) * ypf + (v10 - v00) * ypf1) * (10.0 * inv_vdd);
+  dvy = ((v11 - v10) * xpf + (v01 - v00) * xpf1) * (10.0 * inv_vdd);
 }
 
 double mistral::CycloneV::t2_lookup::lookup(double x, double y) const
 {
   size_t xp, yp;
   double xpf, ypf, xpf1, ypf1;
-  table_pos_to_index(x, xp, xpf, xpf1);
-  table_pos_to_index(y, yp, ypf, ypf1);
+  table_pos_to_index(x * inv_vdd, xp, xpf, xpf1);
+  table_pos_to_index(y * inv_vdd, yp, ypf, ypf1);
 
   //      xy
   double v00 = table->value[xp*11 + yp +   0];
@@ -1092,9 +1092,9 @@ void mistral::CycloneV::t3_lookup::lookup(double x, double y, double z, double &
 {
   size_t xp, yp, zp;
   double xpf, ypf, zpf, xpf1, ypf1, zpf1;
-  table_pos_to_index(x,                xp, xpf, xpf1);
-  table_pos_to_index(y - table->start, yp, ypf, ypf1);
-  table_pos_to_index(z,                zp, zpf, zpf1);
+  table_pos_to_index(x * inv_vdd,                xp, xpf, xpf1);
+  table_pos_to_index((y - table->start) * inv_vdd, yp, ypf, ypf1);
+  table_pos_to_index(z * inv_vdd,                zp, zpf, zpf1);
 
   //      xyz
   double v000 = table->value[xp*121 + yp*11 + zp +   0];
@@ -1110,18 +1110,18 @@ void mistral::CycloneV::t3_lookup::lookup(double x, double y, double z, double &
     v000 * xpf1 * ypf1 * zpf1 + v010 * xpf1 * ypf * zpf1 + v100 * xpf * ypf1 * zpf1 + v110 * xpf * ypf * zpf1 +
     v001 * xpf1 * ypf1 * zpf  + v011 * xpf1 * ypf * zpf  + v101 * xpf * ypf1 * zpf  + v111 * xpf * ypf * zpf;
 
-  dvx = ((v110 - v010) * ypf * zpf1 + (v100 - v000) * ypf1 * zpf1 + (v111 - v011) * ypf * zpf + (v101 - v001) * ypf1 * zpf) * 10.0;
-  dvy = ((v110 - v100) * xpf * zpf1 + (v010 - v000) * xpf1 * zpf1 + (v111 - v101) * xpf * zpf + (v011 - v001) * xpf1 * zpf) * 10.0;
-  dvz = ((v101 - v100) * xpf * ypf1 + (v001 - v000) * xpf1 * ypf1 + (v111 - v110) * xpf * ypf + (v011 - v010) * xpf1 * ypf) * 10.0;
+  dvx = ((v110 - v010) * ypf * zpf1 + (v100 - v000) * ypf1 * zpf1 + (v111 - v011) * ypf * zpf + (v101 - v001) * ypf1 * zpf) * (10.0 * inv_vdd);
+  dvy = ((v110 - v100) * xpf * zpf1 + (v010 - v000) * xpf1 * zpf1 + (v111 - v101) * xpf * zpf + (v011 - v001) * xpf1 * zpf) * (10.0 * inv_vdd);
+  dvz = ((v101 - v100) * xpf * ypf1 + (v001 - v000) * xpf1 * ypf1 + (v111 - v110) * xpf * ypf + (v011 - v010) * xpf1 * ypf) * (10.0 * inv_vdd);
 }
 
 double mistral::CycloneV::t3_lookup::lookup(double x, double y, double z) const
 {
   size_t xp, yp, zp;
   double xpf, ypf, zpf, xpf1, ypf1, zpf1;
-  table_pos_to_index(x,                xp, xpf, xpf1);
-  table_pos_to_index(y - table->start, yp, ypf, ypf1);
-  table_pos_to_index(z,                zp, zpf, zpf1);
+  table_pos_to_index(x * inv_vdd,                xp, xpf, xpf1);
+  table_pos_to_index((y - table->start) * inv_vdd, yp, ypf, ypf1);
+  table_pos_to_index(z * inv_vdd,                zp, zpf, zpf1);
 
   //      xyz
   double v000 = table->value[xp*121 + yp*11 + zp +   0];
@@ -1139,18 +1139,18 @@ double mistral::CycloneV::t3_lookup::lookup(double x, double y, double z) const
 }
 
 
-std::unique_ptr<mistral::CycloneV::t2_lookup> mistral::CycloneV::dn_t2(int driver_id, const char *slot, uint16_t index) const
+std::unique_ptr<mistral::CycloneV::t2_lookup> mistral::CycloneV::dn_t2(int driver_id, const char *slot, uint16_t index, double vdd) const
 {
   assert(index != 0xffff);
   const dnode_table2 *table = dn_table2 + index;
-  return std::make_unique<t2_lookup>(std::string(driver_type_names[driver_id]) + '.' + slot, table);
+  return std::make_unique<t2_lookup>(std::string(driver_type_names[driver_id]) + '.' + slot, table, vdd);
 }
 
-std::unique_ptr<mistral::CycloneV::t3_lookup> mistral::CycloneV::dn_t3(int driver_id, const char *slot, uint16_t index) const
+std::unique_ptr<mistral::CycloneV::t3_lookup> mistral::CycloneV::dn_t3(int driver_id, const char *slot, uint16_t index, double vdd) const
 {
   assert(index != 0xffff);
   const dnode_table3 *table = dn_table3 + index;
-  return std::make_unique<t3_lookup>(std::string(driver_type_names[driver_id]) + '.' + slot, table);
+  return std::make_unique<t3_lookup>(std::string(driver_type_names[driver_id]) + '.' + slot, table, vdd);
 }
 
 void mistral::CycloneV::rnode_timing_generate_line(const rnode_index *targets,
@@ -1356,8 +1356,9 @@ void mistral::CycloneV::rnode_timing_build_input_wave(int didx, rnode_index ri, 
     bmux_get(pn.bt(), pn.p(), bmux, pn.bi(), s);
     lab_output_type labt = s.s == REG ? LAB_OUTPUTT_FF : LAB_OUTPUTT_COMB;
     const input_waveform_info &wi = di.input_waveforms[labt][edge][labc];
+    // Stored LAB ordinates carry an extra supply factor; return circuit volts.
     for(int i=0; i != 10; i++)
-      w.emplace_back(AnalogSim::time_slot(wi.wave[i].time, wi.wave[i].vdd));
+      w.emplace_back(AnalogSim::time_slot(wi.wave[i].time, wi.wave[i].vdd / di.vdd));
     return;
   }
 
@@ -1466,10 +1467,10 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
   case SHP_pd: {
     int pass1 = sim.gn_g(edge ? 0.0 : di.vdd, "pass1");
     int out = sim.gn_g(edge ? di.vdd : 0.0, "out");
-    sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1));
+    sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1, di.vdd));
     sim.add_c(pass1, 0, driver.cstage1.rf[edge]);
     sim.add_r(pass1, 1, 1e9);
-    sim.add_2port(pass1, out, dn_t2(driver_id, "pullup", driver.pullup), dn_t2(driver_id, "output", driver.output));
+    sim.add_2port(pass1, out, dn_t2(driver_id, "pullup", driver.pullup, di.vdd), dn_t2(driver_id, "output", driver.output, di.vdd));
     sim.add_c(pass1, out, driver.cgd_buff.rf[edge]);
     sim.add_r(out, 0, 1e9);
     sim.add_c(out, 0, driver.cout.rf[edge]);
@@ -1481,14 +1482,14 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
     int pass1 = sim.gn_g(edge ? 0.0 : di.vdd, "pass1");
     int out = sim.gn_g(edge ? di.vdd : 0.0, "out");
     int buff = sim.gn_g(edge ? 0.0 : di.vdd, "buff");
-    sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1));
+    sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1, di.vdd));
     sim.add_c(pass1, 0, driver.cstage1.rf[edge]);
     sim.add_r(pass1, 1, 1e9);
-    sim.add_2port(pass1, out, dn_t2(driver_id, "pullup", driver.pullup), dn_t2(driver_id, "output", driver.output));
+    sim.add_2port(pass1, out, dn_t2(driver_id, "pullup", driver.pullup, di.vdd), dn_t2(driver_id, "output", driver.output, di.vdd));
     sim.add_c(pass1, out, driver.cgd_buff.rf[edge]);
     sim.add_r(out, 0, 1e9);
     sim.add_c(out, 0, driver.cint.rf[edge]);
-    sim.add_buff(out, buff, dn_t2(driver_id, "driver", driver.driver));
+    sim.add_buff(out, buff, dn_t2(driver_id, "driver", driver.driver, di.vdd));
     sim.add_c(out, buff, driver.cgd_drive.rf[edge]);
     sim.add_r(buff, 0, 1e9);
     sim.add_c(buff, 0, driver.cout.rf[edge]);
@@ -1501,13 +1502,13 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
       int pass1 = sim.gn_g(edge ? 0.0 : di.vdd, "pass1");
       int pass2 = sim.gn_g(edge ? 0.0 : di.vdd, "pass2");
       int out = sim.gn_g(edge ? di.vdd : 0.0, "out");
-      sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1));
+      sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1, di.vdd));
       sim.add_c(pass1, 0, driver.cstage1.rf[edge]);
       sim.add_r(pass1, 1, 1e9);
-      sim.add_pass(pass1, pass2, dn_t2(driver_id, "pass2", driver.pass2));
+      sim.add_pass(pass1, pass2, dn_t2(driver_id, "pass2", driver.pass2, di.vdd));
       sim.add_c(pass2, 0, driver.cstage2.rf[edge]);
       sim.add_r(pass2, 1, 1e9);
-      sim.add_2port(pass2, out, dn_t2(driver_id, "pullup", driver.pullup), dn_t2(driver_id, "output", driver.output));
+      sim.add_2port(pass2, out, dn_t2(driver_id, "pullup", driver.pullup, di.vdd), dn_t2(driver_id, "output", driver.output, di.vdd));
       sim.add_c(pass2, out, driver.cgd_buff.rf[edge]);
       sim.add_r(out, 0, 1e9);
       sim.add_c(out, 0, driver.cout.rf[edge]);\
@@ -1516,13 +1517,13 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
     } else {
       int pass1 = sim.gn_g(edge ? 0.0 : di.vdd, "pass1");
       int pass2 = sim.gn_g(edge ? 0.0 : di.vdd, "pass2");
-      sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1));
+      sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1, di.vdd));
       sim.add_c(pass1, 0, driver.cstage1.rf[edge]);
       sim.add_r(pass1, 1, 1e9);
-      sim.add_pass(pass1, pass2, dn_t2(driver_id, "pass2", driver.pass2));
+      sim.add_pass(pass1, pass2, dn_t2(driver_id, "pass2", driver.pass2, di.vdd));
       sim.add_c(pass2, 0, driver.cstage2.rf[edge]);
       sim.add_r(pass2, 1, 1e9);
-      sim.add_2port(pass2, wire, dn_t2(driver_id, "pullup", driver.pullup), dn_t2(driver_id, "output", driver.output));
+      sim.add_2port(pass2, wire, dn_t2(driver_id, "pullup", driver.pullup, di.vdd), dn_t2(driver_id, "output", driver.output, di.vdd));
       sim.add_c(pass2, wire, driver.cgd_buff.rf[edge]);
       sim.add_r(wire, 0, 1e9);
       wire_root_to_gnd += driver.cout.rf[edge];
@@ -1535,17 +1536,17 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
     int pass1 = sim.gn_g(edge ? 0.0 : di.vdd, "pass1");
     int pass2 = sim.gn_g(edge ? 0.0 : di.vdd, "pass2");
     int out = sim.gn_g(edge ? di.vdd : 0.0, "out");
-    sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1));
+    sim.add_pass(input, pass1, dn_t2(driver_id, "pass1", driver.pass1, di.vdd));
     sim.add_c(pass1, 0, driver.cstage1.rf[edge]);
     sim.add_r(pass1, 1, 1e9);
-    sim.add_pass(pass1, pass2, dn_t2(driver_id, "pass2", driver.pass2));
+    sim.add_pass(pass1, pass2, dn_t2(driver_id, "pass2", driver.pass2, di.vdd));
     sim.add_c(pass2, 0, driver.cstage2.rf[edge]);
     sim.add_r(pass2, 1, 1e9);
-    sim.add_2port(pass2, out, dn_t2(driver_id, "pullup", driver.pullup), dn_t2(driver_id, "output", driver.output));
+    sim.add_2port(pass2, out, dn_t2(driver_id, "pullup", driver.pullup, di.vdd), dn_t2(driver_id, "output", driver.output, di.vdd));
     sim.add_c(pass2, out, driver.cgd_buff.rf[edge]);
     sim.add_r(out, 0, 1e9);
     sim.add_c(out, 0, driver.cint.rf[edge]);
-    sim.add_buff(out, buff, dn_t2(driver_id, "driver", driver.driver));
+    sim.add_buff(out, buff, dn_t2(driver_id, "driver", driver.driver, di.vdd));
     sim.add_c(out, buff, driver.cgd_drive.rf[edge]);
     sim.add_r(buff, 0, 1e9);
     sim.add_c(buff, 0, driver.cout.rf[edge]);
@@ -1556,13 +1557,13 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
   case SHP_b: {
     if(driver.rwire) {
       int buff = sim.gn_g(edge ? di.vdd : 0.0, "buff");
-      sim.add_buff(input, buff, dn_t2(driver_id, "driver", driver.driver));
+      sim.add_buff(input, buff, dn_t2(driver_id, "driver", driver.driver, di.vdd));
       sim.add_c(input, buff, driver.cgd_drive.rf[edge]);
       sim.add_r(buff, 0, 1e9);
       sim.add_c(buff, 0, driver.cout.rf[edge]);
       sim.add_r(buff, wire, driver.rwire);
     } else {
-      sim.add_buff(input, wire, dn_t2(driver_id, "driver", driver.driver));
+      sim.add_buff(input, wire, dn_t2(driver_id, "driver", driver.driver, di.vdd));
       sim.add_c(input, wire, driver.cgd_drive.rf[edge]);
       sim.add_r(wire, 0, 1e9);
       wire_root_to_gnd += driver.cout.rf[edge];
@@ -1573,8 +1574,8 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
   case SHP_bb: {
     int buff1 = sim.gn_g(edge ? di.vdd : 0.0, "buff1");
     int buff2 = sim.gn_g(edge ? 0.0 : di.vdd, "buff2");
-    sim.add_buff(input, buff1, dn_t2(driver_id, "output", driver.output));
-    sim.add_buff(buff1, buff2, dn_t2(driver_id, "driver", driver.driver));
+    sim.add_buff(input, buff1, dn_t2(driver_id, "output", driver.output, di.vdd));
+    sim.add_buff(buff1, buff2, dn_t2(driver_id, "driver", driver.driver, di.vdd));
     sim.add_c(input, buff1, driver.cgd_buff.rf[edge]);
     sim.add_c(buff1, buff2, driver.cgd_drive.rf[edge]);
     sim.add_c(buff1, 0, driver.cint.rf[edge]);
@@ -1590,14 +1591,14 @@ void mistral::CycloneV::rnode_timing_build_circuit(int didx, rnode_index rn, tim
     int pass1 = sim.gn_g(edge ? 0.0 : di.vdd, "pass1");
     int gate = sim.gn_g(edge ? di.vdd : 0.0, "gate");
     int vcch = sim.gn_v(di.vcch, "vcch");
-    sim.add_noqpg(pass1, gate, input, dn_t3(driver_id, "pass1", driver.pass1));
+    sim.add_noqpg(pass1, gate, input, dn_t3(driver_id, "pass1", driver.pass1, di.vdd));
     sim.add_c(input, gate, driver.cgd_pass.rf[edge]);
     sim.add_c(gate, pass1, driver.cgs_pass.rf[edge]);
     sim.add_c(gate, 0, driver.cg0_pass.rf[edge]);
     sim.add_r(gate, vcch, driver.rnor_pup);
     sim.add_r(pass1, 1, 1e9);
     sim.add_c(pass1, 0, driver.cstage1.rf[edge]);
-    sim.add_2port(pass1, out, dn_t2(driver_id, "pullup", driver.pullup), dn_t2(driver_id, "output", driver.output));
+    sim.add_2port(pass1, out, dn_t2(driver_id, "pullup", driver.pullup, di.vdd), dn_t2(driver_id, "output", driver.output, di.vdd));
     sim.add_c(pass1, out, driver.cgd_buff.rf[edge]);
     sim.add_r(out, 0, 1e9);
     sim.add_c(out, 0, driver.cout.rf[edge]);
