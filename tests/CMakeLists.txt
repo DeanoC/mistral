@@ -51,3 +51,8 @@ target_compile_options(timing-line-loads PRIVATE -fno-access-control)
 target_link_libraries(timing-line-loads PUBLIC mistral)
 target_include_directories(timing-line-loads PUBLIC ${MISTRAL_TEST_INCLUDES})
 add_test(NAME timing-line-loads COMMAND timing-line-loads)
+
+add_executable(timing-supply-voltage timing-supply-voltage.cc)
+target_link_libraries(timing-supply-voltage PUBLIC mistral)
+target_include_directories(timing-supply-voltage PUBLIC ${MISTRAL_TEST_INCLUDES})
+add_test(NAME timing-supply-voltage COMMAND timing-supply-voltage)
