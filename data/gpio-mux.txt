@@ -9,7 +9,7 @@ i output_duty_cycle_delay_ps   n:2  169 168 | 43 42 | 127 126 | 85 84
 i output_duty_cycle_delay_fall b-   167 | 41 | 125 | 83
 i output_duty_cycle_delay_rise b-   166 | 40 | 124 | 82
 i slew_rate_slow               b-:2 164 165 | 38 39 | 122 123 | 80 81
-g lvds_buffer_used             b-:2 21 22
+g lvds_buffer_used             r-:2 21 22
 g use_lvds_termination         b-   20
 l use_pseudo_diff_output       b-   7 | 6
 g use_diff_output              b-   19

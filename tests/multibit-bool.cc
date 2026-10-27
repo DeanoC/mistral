@@ -64,7 +64,6 @@ int main(int argc, char **argv)
   struct Case { const char *name; CV::block_type_t block; CV::xycoords pos; CV::bmux_type_t mux; int idx; int bits; };
   const Case cases[] = {
     {"GPIO SLEW_RATE_SLOW", CV::GPIO, gpio, CV::SLEW_RATE_SLOW, pad, 2},
-    {"GPIO LVDS_BUFFER_USED", CV::GPIO, gpio, CV::LVDS_BUFFER_USED, 0, 2},
     {"M10K PR_EN", CV::M10K, baseline->m10k_get_pos().front(), CV::PR_EN, 0, 2},
     {"DSP PARTIAL_RECONFIG_EN", CV::DSP, baseline->dsp_get_pos().front(), CV::PARTIAL_RECONFIG_EN, 0, 3},
   };
@@ -88,6 +87,21 @@ int main(int argc, char **argv)
     changed->bmux_b_set(c.block, c.pos, c.mux, c.idx, false);
     if(count_diff_lines(*changed, *baseline) != 0) {
       std::fprintf(stderr, "FAIL: %s false does not restore the default\n", c.name);
+      ++failures;
+    }
+  }
+
+  // GPIO LVDS_BUFFER_USED is a 2-bit raw field, not a redundant boolean:
+  // HPS DDR3 reference designs use 01 on DQ/DM blocks and 11 on DQS blocks.
+  // Both values must be stored and read back exactly.
+  for(uint64_t v : {uint64_t(1), uint64_t(3)}) {
+    changed->clear();
+    baseline->clear();
+    CV::bmux_setting_t s;
+    if(!changed->bmux_r_set(CV::GPIO, gpio, CV::LVDS_BUFFER_USED, 0, v) ||
+       !changed->bmux_get(CV::GPIO, gpio, CV::LVDS_BUFFER_USED, 0, s) ||
+       s.r.empty() || s.r[0] != v || count_diff_lines(*changed, *baseline) != (v == 3 ? 2 : 1)) {
+      std::fprintf(stderr, "FAIL: GPIO LVDS_BUFFER_USED raw %d does not round-trip\n", int(v));
       ++failures;
     }
   }
