@@ -10,6 +10,8 @@
 #define MISTRAL_RNODE_UNLINK 1
 // bmux_b_set(true) sets every bit of known redundant GPIO/M10K/DSP booleans.
 #define MISTRAL_MULTIBIT_BOOL_SET 1
+// Explicit GPIO DATAIN.3 identity for registered fabric source excitation.
+#define MISTRAL_GPIO_SOURCE_WAVE 1
 
 #include <stdint.h>
 #include <stdio.h>
@@ -953,6 +955,11 @@ namespace mistral {
     
     void rnode_timing_build_input_wave(rnode_index rn, timing_slot_t temp, delay_type_t delay, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
     void rnode_timing_build_input_wave_si(rnode_index rn, timing_slot_t temp, speed_info_t si, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
+    // The caller declares the original GPIO source, including for HMC bypass
+    // aliases. Reject a mismatched/unsupported identity and clear w. This is
+    // excitation only; it supplies no clock-to-Q, pad or board timing bound.
+    bool gpio_timing_build_input_wave(pnode_coords source, rnode_index rn, timing_slot_t temp,
+                                     delay_type_t delay, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
 
     void rnode_timing_trim_wave(timing_slot_t temp, delay_type_t delay, const AnalogSim::wave &sw, AnalogSim::wave &dw) const;
     void rnode_timing_trim_wave_si(timing_slot_t temp, speed_info_t si, const AnalogSim::wave &sw, AnalogSim::wave &dw) const;
@@ -1364,6 +1371,7 @@ namespace mistral {
 				    AnalogSim &sim, std::vector<std::pair<rnode_index, int>> &outputs) const;
     void rnode_timing_build_circuit(int didx, rnode_index rn, timing_slot_t temp, edge_t edge, AnalogSim &sim, int &input, std::vector<std::pair<rnode_index, int>> &outputs) const;
     void rnode_timing_build_input_wave(int didx, rnode_index rn, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
+    void timing_build_edge_wave(int didx, int edge_type, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const;
     void rnode_timing_trim_wave(int didx, const AnalogSim::wave &sw, AnalogSim::wave &dw) const;
 
     bool rnode_active(const rnode_object *rn, rnode_index previous) const;

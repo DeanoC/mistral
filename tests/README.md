@@ -19,6 +19,14 @@ its finite negative threshold delay must retain an ordered derating envelope.
 These host regressions check model units and numerical contracts. They do
 not calibrate routing/cell/clock timing against Quartus or qualify a board.
 
+`timing-gpio-source-waveforms` checks an explicit GPIO `DATAIN.3` source
+against its declared routing node, including the HMC PHY bypass used by AE23.
+Both source paths produce exactly the existing direct-GPIO excitation for
+the selected corner, edge and slew estimate. Wrong ports/nodes/corners are
+rejected and clear the waveform. The ordinary rnode-only HMC lookup retains
+its unsupported result. This API provides excitation only; consumers still
+need qualified clock-to-Q/local IO models and physical source contracts.
+
 ## Timing line load ordering
 
 `timing-line-loads` calls the actual RC line generator and reconstructs each

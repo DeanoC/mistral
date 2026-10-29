@@ -69,6 +69,11 @@ target_link_libraries(timing-source-waveforms PUBLIC mistral)
 target_include_directories(timing-source-waveforms PUBLIC ${MISTRAL_TEST_INCLUDES})
 add_test(NAME timing-source-waveforms COMMAND timing-source-waveforms)
 
+add_executable(timing-gpio-source-waveforms timing-gpio-source-waveforms.cc)
+target_link_libraries(timing-gpio-source-waveforms PUBLIC mistral)
+target_include_directories(timing-gpio-source-waveforms PUBLIC ${MISTRAL_TEST_INCLUDES})
+add_test(NAME timing-gpio-source-waveforms COMMAND timing-gpio-source-waveforms)
+
 add_executable(timing-signed-interval timing-signed-interval.cc)
 target_link_libraries(timing-signed-interval PUBLIC mistral)
 target_include_directories(timing-signed-interval PUBLIC ${MISTRAL_TEST_INCLUDES})

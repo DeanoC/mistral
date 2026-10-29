@@ -1332,6 +1332,37 @@ void mistral::CycloneV::rnode_timing_build_input_wave_si(rnode_index rn, timing_
   rnode_timing_build_input_wave(dn_lookup->index_si[si][temp], rn, edge, est, w);
 }
 
+bool mistral::CycloneV::gpio_timing_build_input_wave(pnode_coords source, rnode_index rn, timing_slot_t temp,
+                                                   delay_type_t delay, edge_t edge, edge_speed_type est,
+                                                   AnalogSim::wave &w) const
+{
+  w.clear();
+  if(source.bt() != GPIO || source.pt() != DATAIN || source.pi() != 3
+      || source.bi() < 0 || source.bi() >= 4 || source.x() >= di.tile_sx || source.y() >= di.tile_sy
+      || rn == 0xffffffff || unsigned(temp) >= T_COUNT || unsigned(delay) > 1
+      || unsigned(edge) >= RF_COUNT || unsigned(est) >= EST_COUNT)
+    return false;
+
+  auto resolved = pnode_to_rnode(source);
+  if(resolved == 0xffffffff) {
+    auto peer = p2p_to(source);
+    if(!peer) {
+      const auto peers = p2p_from(source);
+      if(peers.size() != 1)
+        return false;
+      peer = peers.front();
+    }
+    const auto bypass = hmc_get_bypass(peer);
+    if(!bypass)
+      return false;
+    resolved = pnode_to_rnode(bypass);
+  }
+  if(resolved == 0xffffffff || resolved != rn)
+    return false;
+  timing_build_edge_wave(dn_lookup->index_sg[model->speed_grade][temp][delay], EDGE_IO, edge, est, w);
+  return true;
+}
+
 void mistral::CycloneV::rnode_timing_build_input_wave(int didx, rnode_index ri, edge_t edge, edge_speed_type est, AnalogSim::wave &w) const
 {
   const dnode_info &di = dn_info[didx];
@@ -1382,6 +1413,13 @@ void mistral::CycloneV::rnode_timing_build_input_wave(int didx, rnode_index ri, 
   if(edge_type == -1)
     return;
 
+  timing_build_edge_wave(didx, edge_type, edge, est, w);
+}
+
+void mistral::CycloneV::timing_build_edge_wave(int didx, int edge_type, edge_t edge, edge_speed_type est,
+                                             AnalogSim::wave &w) const
+{
+  const auto &di = dn_info[didx];
   w.clear();
   w.emplace_back(AnalogSim::time_slot(0.0, edge == RF_RISE ? 0.0 : di.vdd));
   w.emplace_back(AnalogSim::time_slot(di.edges[edge_type][est].rf[edge], edge == RF_RISE ? di.vdd : 0.0));
