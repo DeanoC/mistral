@@ -1058,7 +1058,7 @@ bool mistral::CycloneV::bmux_b_set(block_type_t btype, xycoords pos, bmux_type_t
   // Other MT_BOOL fields encode independent bits (e.g. HIP VC_ENABLE)
   // and must retain the historical scalar value. Reads are unchanged.
   const bool redundant =
-    (btype == GPIO && (mux == SLEW_RATE_SLOW || mux == LVDS_BUFFER_USED)) ||
+    (btype == GPIO && mux == SLEW_RATE_SLOW) ||
     (btype == M10K && mux == PR_EN) ||
     (btype == DSP && mux == PARTIAL_RECONFIG_EN);
   uint64_t val = s;

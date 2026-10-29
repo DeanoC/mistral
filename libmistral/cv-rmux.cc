@@ -263,9 +263,9 @@ std::vector<std::pair<mistral::CycloneV::rnode_index, mistral::CycloneV::rnode_i
       if(snodei != 0xffffffff) {
 	rnode_coords snode = ri2rc(snodei);
 	rnode_coords dnode = r->rc();
-	if(dnode.t() == DCMUX && snode.t() == TCLK && rmux_is_default(snode))
+	if(dnode.t() == DCMUX && snode.t() == TCLK && rmux_is_default(snodei))
 	  continue;
-	if(dnode.t() == SCLK && rmux_is_default(dnode)) {
+	if(dnode.t() == SCLK && rmux_is_default(idx)) {
 	  continue; // Should test if there's a downlink link.
 	}
 
